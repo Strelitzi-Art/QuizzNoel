@@ -263,6 +263,8 @@ kbd { font: 600 12px var(--font); padding: 1px 6px; border-radius: 5px; border: 
 
 /* Lecteur YouTube : hors de l'écran, on n'entend que le son */
 .yt-holder { position: fixed; left: -10000px; top: 0; width: 320px; height: 180px; pointer-events: none; }
+/* Lecteur du son du joueur : 1 pixel invisible dans l'écran (hors de l'écran, le téléphone le mettrait en pause) */
+.yt-holder[data-slot="phone"] { left: 0; bottom: 0; top: auto; width: 1px; height: 1px; overflow: hidden; opacity: 0.01; z-index: -1; }
 
 /* Cases vides des paroles */
 .lyric-blanks { display: flex; flex-direction: column; align-items: center; gap: 6px; }

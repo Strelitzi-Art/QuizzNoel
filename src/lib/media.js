@@ -293,22 +293,32 @@ export class PhoneSound {
     }
     const p = this.player;
     if (!p) { this.lastError = "Le lecteur YouTube n'est pas encore chargé"; playBeep(); return Promise.resolve(false); }
-    // Exactement comme la version qui fonctionnait : on lance la vidéo, sans rien d'autre avant
-    try { p.unMute(); p.setVolume?.(100); p.seekTo(s.start, true); p.playVideo(); } catch (e) { this.lastError = String(e.message || e); playBeep(); return Promise.resolve(false); }
-    // On laisse à YouTube le temps de charger (souvent plus d'une seconde sur téléphone) ;
-    // le bip de secours ne sert que si rien n'a démarré au bout de 2,5 s
+    // Les téléphones refusent qu'une page lance une vidéo YouTube avec le son,
+    // mais acceptent toujours qu'elle la lance en muet. On démarre donc en muet,
+    // puis on remet le son dès que la vidéo tourne : pas besoin de toucher la vidéo.
+    try { p.mute(); p.seekTo(s.start, true); p.playVideo(); } catch (e) { this.lastError = String(e.message || e); playBeep(); return Promise.resolve(false); }
     return new Promise((resolve) => {
       const t0 = Date.now();
+      let unmutedAt = 0;
+      const fail = (msg) => {
+        if (!this.lastError) this.lastError = msg;
+        try { p.pauseVideo(); } catch { /* rien */ }
+        playBeep();
+        resolve(false);
+      };
       const check = () => {
         if (token !== this.playToken) return resolve(true); // un nouvel appui a pris le relais
         const st = p.getPlayerState?.();
-        if (st === 1) { this.activated = true; return resolve(true); }
-        if (this.lastError || (st !== 3 && Date.now() - t0 > 2500) || Date.now() - t0 > 5000) {
-          if (!this.lastError) this.lastError = "Le téléphone a bloqué la lecture YouTube (état du lecteur : " + (st ?? "?") + ")";
-          playBeep();
-          return resolve(false);
+        if (this.lastError) return fail(this.lastError);
+        if (!unmutedAt) {
+          if (st === 1) { p.unMute(); p.setVolume?.(100); unmutedAt = Date.now(); }
+          else if ((st !== 3 && Date.now() - t0 > 2500) || Date.now() - t0 > 5000)
+            return fail("La vidéo YouTube n'a pas démarré (état du lecteur : " + (st ?? "?") + ")");
+        } else if (Date.now() - unmutedAt > 500) {
+          if (st === 1 && !p.isMuted?.()) { this.activated = true; return resolve(true); }
+          return fail("Le téléphone a coupé la vidéo quand le son a été remis (état du lecteur : " + (st ?? "?") + ")");
         }
-        setTimeout(check, 100);
+        setTimeout(check, 80);
       };
       check();
     });
@@ -325,8 +335,7 @@ export class PhoneSound {
   applyShow() {
     const el = document.querySelector('.yt-holder[data-slot="phone"]');
     if (!el) return;
-    const visible = this.wantShow && this.mode === "yt" && !this.activated; // une fois activée, la vidéo n'a plus besoin d'être affichée
-    el.classList.toggle("show", visible);
+    el.classList.remove("show"); // la vidéo n'est jamais montrée au joueur
   }
 }
 

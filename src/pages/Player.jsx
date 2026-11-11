@@ -391,8 +391,8 @@ function SoundTester() {
       {state === "ok" && <span className="st-ok">✓ Ça marche ! Ton téléphone jouera ce son quand tu buzzeras.</span>}
       {state === "blocked" && (
         <span className="st-ko">
-          Ton téléphone n'a pas lancé ton son. Touche <strong>▶ directement sur la petite vidéo</strong> en bas de l'écran, puis reteste.
-          (Si ça ne passe vraiment pas, un bip de secours le remplacera pendant la partie.)
+          Ton téléphone a refusé de lancer ce son : pendant la partie, un <strong>bip de secours</strong> le remplacera.
+          Choisis un autre son, ou demande au maître du jeu un son en fichier MP3 (ceux-là marchent sur tous les téléphones).
           {why && <small className="st-why">Détail : {why}</small>}
         </span>
       )}
