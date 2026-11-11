@@ -3,7 +3,7 @@ import { getDB, useDb } from "../lib/db.js";
 import { LS, BASE, rid, roomKeyFor, ranking } from "../lib/utils.js";
 import { normalizeConfig, buildDeck, buildBlindDeck, answerText, checkAnswer, checkBlind, countWords, toArr, TEAM_COLORS } from "../lib/quiz.js";
 import { TrackPlayer } from "../lib/media.js";
-import { soundById, playSound, unlockSounds, firstFreeSound, buildSoundCatalog, setSoundCatalog, getSoundCatalog, primeCustomSounds } from "../lib/sounds.js";
+import { soundById, firstFreeSound, buildSoundCatalog, buildSignal, setSoundCatalog, getSoundCatalog, primeSignal, playSignal } from "../lib/sounds.js";
 import MusicStage from "../components/MusicStage.jsx";
 import AdminGate from "../components/AdminGate.jsx";
 import Timer, { useRemaining } from "../components/Timer.jsx";
@@ -82,19 +82,16 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
     });
   }
   const media = playerRef.current;
-  useEffect(() => {
-    const unlock = () => unlockSounds();
-    window.addEventListener("pointerdown", unlock);
-    return () => { window.removeEventListener("pointerdown", unlock); media.destroy(); };
-  }, []);
+  useEffect(() => () => media.destroy(), []);
   const playFrom = (q, from, limit) => media.play(q, from, limit);
   const pauseAudio = () => media.pause();
   const resumeAudio = () => media.resume();
   const stopAudio = () => media.stop();
   const playFull = () => media.playFull();
 
-  // Préchargement des sons de buzzer personnalisés (YouTube)
-  useEffect(() => { if (roomSounds) primeCustomSounds(toArr(roomSounds)); }, [JSON.stringify(roomSounds || null)]);
+  // Son de signal de l'écran de jeu : préchargé pour partir sans délai au buzz
+  const signal = buildSignal(current?.settings);
+  useEffect(() => { primeSignal(signal); }, [signal?.link, signal?.start]);
 
   // ---------- Initialisation de la salle ----------
   useEffect(() => {
@@ -115,7 +112,7 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
     return {
       status: "lobby", qIndex: -1, total: deck.length, title: s.title, gameType: type,
       hideScores: !!s.hideScores, lateJoin: !!s.lateJoin, mode: s.mode, scoring: s.scoring !== false,
-      teams: !!s.teams, phoneSound: s.phoneBuzzSound !== false, attempts: Number(s.attempts) || 0, timer: Number(s.timer) || 0, gameId: rid(),
+      teams: !!s.teams, attempts: Number(s.attempts) || 0, timer: Number(s.timer) || 0, gameId: rid(),
     };
   }
   function teamsFromSettings(s) {
@@ -274,6 +271,7 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
     for (const [id, x] of Object.entries(items)) {
       if (x.sound && valid.has(x.sound)) continue;
       const snd = firstFreeSound(taken);
+      if (!snd) break; // aucun son de joueur dans la config
       taken.push(snd);
       upd[`${teamMode ? "teams" : "players"}/${id}/sound`] = snd;
     }
@@ -281,7 +279,6 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
   }
 
   async function startGame() {
-    unlockSounds();
     await assignUnassigned();
     await assignSounds();
     await goTo(0);
@@ -405,20 +402,15 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
     // Le premier de la file garde la parole ; les autres sont classés par vitesse
     B.queue = wasEmpty ? fresh.sort(byTime) : [B.queue[0], ...[...B.queue.slice(1), ...fresh].sort(byTime)];
     if (wasEmpty) pauseAudio();
-    const signal = curRef.current?.settings?.hostBuzzSound ?? "buzzer";
-    if (signal !== "none") fresh.sort(byTime).forEach((b, i) => setTimeout(() => playSound(signal === "player" ? soundOf(b.pid) : signal), i * 300));
+    // Uniquement le son de signal sur cet écran (le son de chaque joueur sort de son téléphone)
+    const sig = buildSignal(curRef.current?.settings);
+    if (sig) fresh.forEach((b, i) => setTimeout(() => playSignal(sig), i * 350));
     await db.update(R, { "state/queue": B.queue, "state/phase": "buzzed" });
   }
 
   useEffect(() => {
     if (buzz && st?.status === "question" && isBlind) enqueue(() => processBuzz(buzz));
   }, [buzz, st?.status, st?.qIndex]);
-
-  function soundOf(pid) {
-    const p = playersRef.current?.[pid];
-    if (stRef.current?.teams && p?.team) return teamsRef.current?.[p.team]?.sound;
-    return p?.sound;
-  }
 
   async function validateBuzz() {
     const s = stRef.current;
@@ -512,6 +504,12 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
           </div>
         )}
         <div className="host-tools">
+          {st.status !== "lobby" && (
+            <button className="btn btn-ghost btn-sm home-btn" title="Arrêter la partie sans classement et revenir au salon d'attente"
+              onClick={() => confirm("Arrêter la partie maintenant, sans classement, et revenir au salon d'attente ?") && newGame(true, gameType)}>
+              ⌂ Accueil
+            </button>
+          )}
           <a className="btn btn-ghost btn-sm" href={BASE + "quizz/config/"} target="_blank" rel="noreferrer">Config</a>
           <button className="btn btn-ghost btn-sm" onClick={() => { LS.del("quizz-admin"); location.reload(); }}>Déconnexion</button>
         </div>
@@ -612,7 +610,7 @@ function Lobby({ joinUrl, password, players, teams, teamIds, total, unit, units,
   const qr = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=8&data=${encodeURIComponent(joinUrl)}`;
   const soundIcon = (id) => {
     const snd = soundById(id);
-    return snd ? <span className="chip-sound" title={`${snd.name} (cliquer pour écouter)`} onClick={(e) => { e.stopPropagation(); playSound(snd.id); }}>{snd.icon}</span> : null;
+    return snd ? <span className="chip-sound" title={snd.name}>{snd.icon}</span> : null;
   };
   const showSounds = gameType === "blind";
   const chip = ([pid, p]) => (
@@ -638,7 +636,7 @@ function Lobby({ joinUrl, password, players, teams, teamIds, total, unit, units,
         <div className="join-url">{joinUrl.replace(/^https?:\/\//, "")}</div>
         {password && <div className="join-pwd">Mot de passe : <strong>{password}</strong></div>}
         <div className="muted">{total} {total > 1 ? units : unit} prêt{unit === "question" ? "e" : ""}{total > 1 ? "s" : ""}</div>
-        {gameType === "blind" && <div className="blind-note muted">♫ La musique est jouée par cet écran : monte le son !<br />Chacun choisit son son de buzzer sur son téléphone.</div>}
+        {gameType === "blind" && <div className="blind-note muted">♫ La musique est jouée par cet écran : monte le son !<br />Chacun choisit son son de buzzer, qui sortira de son téléphone.</div>}
       </div>
       <div className="lobby-players">
         <div className="mode-bar">
@@ -708,9 +706,10 @@ function RoundIntro({ q }) {
   );
 }
 
-function Presenter({ found, status }) {
+function Presenter({ found, status, blind }) {
   const n = Object.keys(found || {}).length;
-  const name = n > 0 ? IMAGES.found : status === "closed" ? IMAGES.nobody : IMAGES.question;
+  // Quiz : Julien Lepers ; blind test : Nagui
+  const name = n > 0 ? (blind ? IMAGES.blindFound : IMAGES.found) : status === "closed" ? IMAGES.nobody : (blind ? IMAGES.blindQuestion : IMAGES.question);
   return <OptionalImage name={name} className="presenter" />;
 }
 
@@ -768,7 +767,7 @@ function BlindView({ st, deckQ, found, queue, audio, teams, players, onToggle })
   const pct = deckQ && len > 0 ? Math.min(100, Math.max(0, ((audio.t - deckQ.start) / len) * 100)) : 0;
   return (
     <div className="qview">
-      <Presenter found={found} status={st.status} />
+      <Presenter found={found} status={st.status} blind />
       <div className="qview-main">
         <div className="q-cat">Manche {q.round} · {q.roundName}</div>
         <h1 className="q-text">{q.prompt}</h1>

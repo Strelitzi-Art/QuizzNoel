@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { getDB, useDb } from "../lib/db.js";
 import { SESSION, go, ranking } from "../lib/utils.js";
 import { toArr, TEAM_COLORS } from "../lib/quiz.js";
-import { playSound, unlockSounds, setSoundCatalog, getSoundCatalog, soundById, primeCustomSounds } from "../lib/sounds.js";
+import { setSoundCatalog, getSoundCatalog, soundById, phoneSound } from "../lib/sounds.js";
 import Timer, { useRemaining } from "../components/Timer.jsx";
 import Podium from "../components/Podium.jsx";
 import OptionalImage, { IMAGES } from "../components/OptionalImage.jsx";
@@ -70,16 +70,16 @@ function PlayerGame({ session }) {
       {st.status === "lobby" && (
         <PlayerLobby players={players} title={st.title} myTeam={myTeam} isBlind={st.gameType === "blind"}>
           {teamMode && <TeamPicker R={R} pid={pid} me={me} teams={teams} players={players} />}
-          {st.gameType === "blind" && <SoundPicker R={R} pid={pid} me={me} teamMode={teamMode} myTeam={myTeam} players={players} teams={teams} onPhone={st.phoneSound !== false} />}
+          {st.gameType === "blind" && <SoundPicker R={R} pid={pid} me={me} teamMode={teamMode} myTeam={myTeam} players={players} teams={teams} />}
         </PlayerLobby>
       )}
       {st.status === "intro" && <PlayerIntro q={st.question} />}
       {(st.status === "question" || st.status === "closed") && !isBlind && (
         <PlayerQuestion key={`${st.gameId}-${st.qIndex}`} st={st} R={R} pid={pid} myTeam={myTeam?.id} />
       )}
-      {st.gameType === "blind" && st.phoneSound !== false && <SoundPreloader id={mySound} />}
+      {st.gameType === "blind" && <PhoneSoundSync id={mySound} show={st.status === "lobby"} />}
       {(st.status === "question" || st.status === "closed") && isBlind && (
-        <PlayerBlind key={`${st.gameId}-${st.qIndex}`} st={st} R={R} pid={pid} myTeam={myTeam?.id} mySound={st.phoneSound !== false ? mySound : null} />
+        <PlayerBlind key={`${st.gameId}-${st.qIndex}`} st={st} R={R} pid={pid} myTeam={myTeam?.id} mySound={mySound} />
       )}
       {st.status === "ended" && (
         <div className="p-ended">
@@ -138,8 +138,8 @@ function TeamPicker({ R, pid, me, teams, players }) {
   );
 }
 
-/** Choix du son de buzzer (par joueur, ou par équipe) : il sera joué sur l'écran principal à chaque buzz */
-function SoundPicker({ R, pid, me, teamMode, myTeam, players, teams, onPhone }) {
+/** Choix du son de buzzer (par joueur, ou par équipe) : il sortira du téléphone du joueur quand il buzze */
+function SoundPicker({ R, pid, me, teamMode, myTeam, players, teams }) {
   const db = getDB();
   if (teamMode && !myTeam) return <p className="muted small sound-wait">Le son de buzzer se choisit une fois que tu es dans une équipe.</p>;
   const current = teamMode ? myTeam.sound : me.sound;
@@ -147,19 +147,22 @@ function SoundPicker({ R, pid, me, teamMode, myTeam, players, teams, onPhone }) 
   if (teamMode) for (const [tid, t] of Object.entries(teams || {})) { if (tid !== myTeam.id && t.sound) taken.set(t.sound, t.name); }
   else for (const [id, p] of Object.entries(players || {})) { if (id !== pid && p.sound) taken.set(p.sound, p.name); }
   const SOUNDS = getSoundCatalog();
+  if (!SOUNDS.length) return null; // aucun son de joueur dans la config
   const allTaken = SOUNDS.every((x) => taken.has(x.id) || x.id === current);
 
   function pick(id) {
-    unlockSounds();
-    playSound(id);
     if (taken.has(id) && !allTaken) return;
+    phoneSound().setSound(soundById(id));
     db.update(R, { [teamMode ? `teams/${myTeam.id}/sound` : `players/${pid}/sound`]: id });
   }
 
   return (
     <div className="sound-picker">
       <h3>{teamMode ? `Le son de buzzer de ${myTeam.name}` : "Choisis ton son de buzzer"}</h3>
-      <p className="muted small">Touche un son pour l'écouter et le choisir. {onPhone ? "Il sortira de ton téléphone quand tu buzzeras : monte le son !" : "Il retentira sur le grand écran quand tu buzzeras."}</p>
+      <p className="muted small">
+        Il sortira de <strong>ton téléphone</strong> quand tu buzzeras : monte le son !
+        {current ? <> Touche <strong>▶</strong> sur le petit lecteur en bas de l'écran pour l'écouter : c'est ce qui autorise ton téléphone à le jouer pendant la partie.</> : " Touche un son pour le choisir."}
+      </p>
       <div className="sound-grid">
         {SOUNDS.map((x) => {
           const owner = taken.get(x.id);
@@ -208,7 +211,7 @@ function PlayerBlind({ st, R, pid, myTeam, mySound }) {
 
   async function press() {
     if (!canBuzz) return;
-    if (mySound) playSound(mySound); // le son part tout de suite, pendant l'appui
+    if (mySound) phoneSound().play(); // le son du joueur sort de son téléphone, pendant l'appui
     const n = Math.max(sent, result?.n || 0, mine?.n || 0) + 1;
     setSent(n);
     setPressed(true);
@@ -337,11 +340,14 @@ function PlayerQuestion({ st, R, pid, myTeam }) {
   );
 }
 
-/** Précharge le son YouTube choisi par le joueur pour qu'il parte sans délai quand il buzze */
-function SoundPreloader({ id }) {
+/** Prépare le son du joueur sur son téléphone, et affiche le petit lecteur dans le salon d'attente */
+function PhoneSoundSync({ id, show }) {
   useEffect(() => {
     const snd = id && soundById(id);
-    if (snd?.link) primeCustomSounds([snd]);
-  }, [id]);
+    const ps = phoneSound();
+    if (snd) ps.setSound(snd).then(() => ps.show(show));
+    else ps.show(false);
+  }, [id, show]);
+  useEffect(() => () => phoneSound().show(false), []);
   return null;
 }

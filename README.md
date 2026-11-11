@@ -85,11 +85,13 @@ Les fautes de frappe sont tolérées : 1 lettre par mot jusqu'à 5 lettres, 2 au
 Pour les paroles, il faut tous les mots, dans l'ordre, sans mot en trop. Le nombre de mots à trouver s'affiche sous forme de cases sur l'écran et sur les téléphones.
 Plusieurs réponses acceptées : sépare-les par `|` (`Star Wars | La Guerre des étoiles`). Dans tous les modes, les petits liens « accepter / refuser » permettent au maître du jeu de trancher lui-même.
 
-**Sons de buzzer :** dans le salon d'attente, chaque joueur (ou chaque équipe) choisit son son sur son téléphone. Chaque son ne peut être pris qu'une fois.
-Ceux qui n'ont rien choisi reçoivent un son libre au lancement. Le son retentit sur l'écran du maître du jeu à chaque buzz, avec une explosion de couleur et le nom du joueur.
-Il y a 14 sons intégrés, et tu peux créer les tiens dans la config (section **Sons de buzzer**) : un nom, un emoji, un lien YouTube, puis le début et la fin du passage (3 secondes environ, 8 au maximum).
-**▶ Tester** permet de l'écouter. Une case permet de ne proposer que tes sons personnalisés.
-Sur l'écran de jeu, chaque son personnalisé est préchargé en sourdine, pour partir sans délai au moment du buzz.
+**Sons de buzzer :** tout se règle dans la config, section **Sons de buzzer**, à partir d'extraits YouTube (3 secondes environ, 8 au maximum).
+- **Son de l'écran du maître du jeu** : joué uniquement sur l'écran de jeu, à chaque buzz.
+- **Sons des joueurs** : la liste proposée dans le salon d'attente. Chaque joueur (ou équipe) choisit le sien, qui sort **uniquement de son téléphone** quand il buzze. Ceux qui n'ont rien choisi en reçoivent un au lancement.
+
+Important sur téléphone : les navigateurs mobiles bloquent le son tant que la personne n'a pas touché le lecteur. Après avoir choisi son son, chaque joueur touche donc **▶ sur le petit lecteur** qui apparaît en bas de son écran, dans le salon d'attente. Ce toucher autorise son téléphone à jouer le son pendant la partie.
+
+**⌂ Accueil** (en haut de l'écran de jeu) arrête la partie tout de suite, sans classement, et revient au salon d'attente avec les mêmes joueurs.
 
 **Déroulé :** pendant l'extrait, un vinyle tourne sur l'écran principal (clique dessus pour mettre en pause ou relancer) et chaque joueur a un gros bouton **BUZZ**.
 Au premier buzz, la musique se met en pause. Le joueur répond à voix haute et le maître du jeu clique sur **✓ Bonne réponse** (touche `V`) ou **✗ Mauvaise réponse** (touche `X`).

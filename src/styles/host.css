@@ -269,3 +269,5 @@
 .host:has(.answer-entry) .tonearm { left: calc(50% + clamp(65px, 9vh, 95px)); top: calc(50% - clamp(75px, 11vh, 110px)); height: clamp(90px, 13vh, 130px); }
 .host:has(.answer-entry) .stage-rings span { width: clamp(130px, 18vh, 190px); }
 .host:has(.answer-entry) .q-text { font-size: clamp(26px, 2.8vw, 46px); }
+.host-tools { opacity: 0.85; }
+.home-btn { border-color: var(--line-strong); color: var(--gold-2); }

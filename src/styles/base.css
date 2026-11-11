@@ -271,3 +271,14 @@ kbd { font: 600 12px var(--font); padding: 1px 6px; border-radius: 5px; border: 
 .lyric-blanks small { color: var(--gold-2); font-family: var(--font-title); letter-spacing: 0.08em; font-size: clamp(14px, 1.4vw, 20px); }
 .lyric-blanks.small .blanks span { width: 30px; height: 5px; }
 .lyric-blanks.small small { font-size: 14px; }
+/* Sur le téléphone, dans le salon : le lecteur du son du joueur est visible pour être activé d'un toucher */
+.yt-holder.show {
+  left: 50%; top: auto; bottom: 12px; transform: translateX(-50%); z-index: 60; pointer-events: auto;
+  width: 248px; height: auto; padding: 26px 4px 4px; border-radius: 14px;
+  background: var(--panel-solid); border: 1px solid var(--gold); box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+}
+.yt-holder.show::before {
+  content: "Touche ▶ pour écouter (et activer) ton son"; position: absolute; top: 5px; left: 0; right: 0;
+  text-align: center; font: 600 11px var(--font); color: var(--gold-2);
+}
+.yt-holder.show iframe { display: block; width: 240px; height: 135px; border-radius: 10px; }

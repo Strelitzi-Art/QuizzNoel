@@ -4,7 +4,6 @@ import { LS, BASE, adminKeyFor, rid } from "../lib/utils.js";
 import { normalizeConfig, newQuestion, isValidQuestion, parseQuickAdd, toArr, BLIND_ROUNDS, TEAM_COLORS, newTrack, isValidTrack, parseTime } from "../lib/quiz.js";
 import { TrackPlayer, youtubeId, youtubeStart, youtubeThumb } from "../lib/media.js";
 import { mergeConfigs } from "../lib/merge.js";
-import { SOUNDS, playSound, unlockSounds, buildSoundCatalog, setSoundCatalog } from "../lib/sounds.js";
 import AdminGate from "../components/AdminGate.jsx";
 import "../styles/config.css";
 
@@ -510,92 +509,86 @@ function SoundsSection({ cfg, change, setS }) {
   const [err, setErr] = useState(null);
   const valid = (x) => x.name.trim() && youtubeId(x.link);
   const nValid = cfg.sounds.filter(valid).length;
-  // Sons possibles pour le signal de l'écran de jeu : les sons personnalisés + tous les sons intégrés
-  const signalChoices = [...buildSoundCatalog(cfg).filter((x) => x.link), ...SOUNDS];
+  const sig = cfg.settings.hostSignal;
 
-  const test = (x) => {
+  const test = (x, key) => {
     const p = getTester(
-      (st) => { if (st.err) { setErr({ id: x.id, msg: st.err }); setPlaying(null); } },
+      (st) => { if (st.err) { setErr({ id: key, msg: st.err }); setPlaying(null); } },
       () => setPlaying(null),
     );
-    if (playing === x.id) { p.stop(); setPlaying(null); return; }
+    if (playing === key) { p.stop(); setPlaying(null); return; }
     setErr(null);
-    setPlaying(x.id);
+    setPlaying(key);
     const start = parseTime(x.start) ?? youtubeStart(x.link) ?? 0;
     let end = parseTime(x.end) ?? start + 3;
     if (end <= start) end = start + 3;
     p.play(x, start, Math.min(end, start + 8));
   };
 
+  // Champs communs : lien YouTube (+ miniature, + Tester), début, fin
+  const clipFields = (x, key, onChange) => {
+    const id = youtubeId(x.link);
+    const set = (k) => (e) => {
+      const v = e.target.value;
+      onChange((o) => {
+        o[k] = v;
+        if (k === "link" && !String(o.start).trim()) { const ts = youtubeStart(v); if (ts != null) o.start = String(ts); }
+      });
+    };
+    return (
+      <>
+        <div className="track-file">
+          {id && <img className="yt-thumb" src={youtubeThumb(id)} alt="" onError={(e) => (e.currentTarget.style.display = "none")} />}
+          <input placeholder="Lien YouTube" value={x.link} onChange={set("link")} />
+          <button className="btn btn-ghost btn-sm" disabled={!id} onClick={() => test(x, key)}>{playing === key ? "■ Stop" : "▶ Tester"}</button>
+        </div>
+        {err?.id === key && <div className="warn test-err">{err.msg}</div>}
+        <div className="track-times">
+          <label className="field"><span>Début</span><input placeholder="0:12" value={x.start} onChange={set("start")} /></label>
+          <label className="field"><span>Fin</span><input placeholder="0:15" value={x.end} onChange={set("end")} /></label>
+        </div>
+      </>
+    );
+  };
+
   return (
     <section className="cfg-section">
-      <div className="section-head">
-        <h2>Sons de buzzer</h2>
-        <div className="row">
-          <button className="btn btn-gold btn-sm" onClick={() => change((c) => { c.sounds.push({ id: rid(4), name: "", icon: "", link: "", start: "", end: "" }); })}>+ Son</button>
-        </div>
-      </div>
+      <div className="section-head"><h2>Sons de buzzer</h2></div>
+
       <div className="card blind-help">
-        <p>
-          Chaque joueur (ou équipe) choisit son son sur son téléphone dans le salon d'attente ; il sort de son téléphone quand il buzze.
-          L'écran de jeu, lui, joue un son de signal que tu choisis ci-dessous. Tu peux créer tes propres sons à partir de YouTube :
-          un nom, une icône (emoji), le lien, puis le passage à jouer (<strong>3 secondes environ</strong>, 8 au maximum).
+        <h3 className="sub-title">Son de l'écran du maître du jeu</h3>
+        <p className="muted small">
+          Joué <strong>uniquement sur l'écran de jeu</strong> à chaque buzz, pour signaler que quelqu'un a buzzé
+          (3 secondes environ, 8 au maximum). Laisse vide pour aucun son.
         </p>
-        <div className="signal-row">
-          <label className="field">
-            <span>Son joué sur l'écran de jeu quand quelqu'un buzze</span>
-            <select value={cfg.settings.hostBuzzSound} onChange={(e) => setS("hostBuzzSound", e.target.value)}>
-              <option value="player">Le son choisi par le joueur (ou son équipe)</option>
-              <option value="none">Aucun son</option>
-              {signalChoices.map((x) => <option key={x.id} value={x.id}>{x.icon} {x.name}</option>)}
-            </select>
-          </label>
-          {!["player", "none"].includes(cfg.settings.hostBuzzSound) && (
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { unlockSounds(); setSoundCatalog(signalChoices); playSound(cfg.settings.hostBuzzSound); }}>▶ Écouter</button>
-          )}
-        </div>
-        <Check label="Le son choisi par chaque joueur sort de son téléphone quand il buzze" v={cfg.settings.phoneBuzzSound} on={(v) => setS("phoneBuzzSound", v)} />
-        <Check label="Proposer aussi les sons intégrés (cloche, gong, laser…)" v={cfg.settings.builtinSounds} on={(v) => setS("builtinSounds", v)} />
-        {cfg.settings.builtinSounds && (
-          <div className="builtin-sounds">
-            {SOUNDS.map((x) => (
-              <button key={x.id} type="button" className="mini-sound" title="Écouter" onClick={() => { unlockSounds(); playSound(x.id); }}>
-                {x.icon} {x.name}
-              </button>
-            ))}
-          </div>
+        {clipFields(sig, "signal", (fn) => change((c) => { fn(c.settings.hostSignal); }))}
+        {sig.link && (
+          <button className="btn btn-ghost btn-sm clear-sig" onClick={() => setS("hostSignal", { link: "", start: "", end: "" })}>Retirer ce son</button>
         )}
-        <p className="muted small">{nValid} son{nValid > 1 ? "s" : ""} personnalisé{nValid > 1 ? "s" : ""} prêt{nValid > 1 ? "s" : ""}.</p>
       </div>
-      {cfg.sounds.map((x, i) => {
-        const id = youtubeId(x.link);
-        const set = (k) => (e) => change((c) => {
-          c.sounds[i][k] = e.target.value;
-          if (k === "link" && !String(c.sounds[i].start).trim()) {
-            const ts = youtubeStart(e.target.value);
-            if (ts != null) c.sounds[i].start = String(ts);
-          }
-        });
-        return (
-          <div key={x.id} className={"card q-edit sound-edit" + (valid(x) ? "" : " invalid")}>
-            <div className="sound-row">
-              <input className="sound-emoji" value={x.icon} maxLength={4} placeholder="🎵" onChange={set("icon")} title="Icône (emoji)" />
-              <input className="sound-name-input" value={x.name} maxLength={18} placeholder="Nom du son (ex : Mario)" onChange={set("name")} />
-              <button className="icon-btn danger" title="Supprimer" onClick={() => change((c) => { c.sounds.splice(i, 1); })}>✕</button>
-            </div>
-            <div className="track-file">
-              {id && <img className="yt-thumb" src={youtubeThumb(id)} alt="" onError={(e) => (e.currentTarget.style.display = "none")} />}
-              <input placeholder="Lien YouTube" value={x.link} onChange={set("link")} />
-              <button className="btn btn-ghost btn-sm" disabled={!id} onClick={() => test(x)}>{playing === x.id ? "■ Stop" : "▶ Tester"}</button>
-            </div>
-            {err?.id === x.id && <div className="warn test-err">{err.msg}</div>}
-            <div className="track-times">
-              <label className="field"><span>Début</span><input placeholder="0:12" value={x.start} onChange={set("start")} /></label>
-              <label className="field"><span>Fin</span><input placeholder="0:15" value={x.end} onChange={set("end")} /></label>
-            </div>
+
+      <div className="section-head sub">
+        <h3 className="sub-title">Sons des joueurs</h3>
+        <button className="btn btn-gold btn-sm" onClick={() => change((c) => { c.sounds.push({ id: rid(4), name: "", icon: "", link: "", start: "", end: "" }); })}>+ Son</button>
+      </div>
+      <p className="muted small sounds-help">
+        La liste proposée aux joueurs dans le salon d'attente. Chacun (ou chaque équipe) en choisit un, qui sortira de
+        <strong> son propre téléphone</strong> quand il buzzera. Un nom, un emoji, le lien YouTube et le passage à jouer.
+        {" "}{nValid} son{nValid > 1 ? "s" : ""} prêt{nValid > 1 ? "s" : ""}.
+      </p>
+      {cfg.sounds.length === 0 && <p className="muted small">Aucun son pour l'instant : les téléphones resteront silencieux.</p>}
+      {cfg.sounds.map((x, i) => (
+        <div key={x.id} className={"card q-edit sound-edit" + (valid(x) ? "" : " invalid")}>
+          <div className="sound-row">
+            <input className="sound-emoji" value={x.icon} maxLength={4} placeholder="🎵" title="Icône (emoji)"
+              onChange={(e) => change((c) => { c.sounds[i].icon = e.target.value; })} />
+            <input className="sound-name-input" value={x.name} maxLength={18} placeholder="Nom du son (ex : Mario)"
+              onChange={(e) => change((c) => { c.sounds[i].name = e.target.value; })} />
+            <button className="icon-btn danger" title="Supprimer" onClick={() => change((c) => { c.sounds.splice(i, 1); })}>✕</button>
           </div>
-        );
-      })}
+          {clipFields(x, x.id, (fn) => change((c) => { fn(c.sounds[i]); }))}
+        </div>
+      ))}
     </section>
   );
 }

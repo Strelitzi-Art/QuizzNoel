@@ -24,10 +24,8 @@ export const DEFAULT_SETTINGS = {
   // Blind test
   blindLockout: true,   // un joueur refusé ne peut plus buzzer sur ce morceau
   blindShuffle: true,   // mélange les morceaux à l'intérieur de chaque manche
-  blindCheck: "auto",
-  builtinSounds: true,
-  hostBuzzSound: "buzzer", // son sur l'écran de jeu à chaque buzz : un son précis, "player" (le son du joueur) ou "none"
-  phoneBuzzSound: true,    // le son choisi par le joueur sort de son téléphone quand il buzze  // proposer aussi les 14 sons intégrés en plus des sons personnalisés   // réponse au buzzer : "auto" (le jeu valide), "assist" (le jeu teste, le MJ confirme), "manual"
+  blindCheck: "auto",   // réponse au buzzer : "auto" (le jeu valide), "assist" (le jeu teste, le MJ confirme), "manual"
+  hostSignal: { link: "", start: "", end: "" }, // son joué sur l'écran de jeu à chaque buzz (extrait YouTube)
 };
 
 export const TEAM_COLORS = ["#e5484d", "#e2b864", "#46a771", "#7fb4ff", "#c89bff", "#ff9f5a"];
@@ -117,6 +115,9 @@ export function normalizeConfig(c) {
       const names = toArr(st.teamNames);
       st.teamNames = DEFAULT_SETTINGS.teamNames.map((d, i) => names[i] || d);
       st.teamCount = Math.min(6, Math.max(2, Number(st.teamCount) || 2));
+      const sig = st.hostSignal && typeof st.hostSignal === "object" ? st.hostSignal : {};
+      st.hostSignal = { link: sig.link || "", start: sig.start ?? "", end: sig.end ?? "" };
+      delete st.builtinSounds; delete st.hostBuzzSound; delete st.phoneBuzzSound;
       return st;
     })(),
     categories: toArr(c.categories).map((cat) => ({

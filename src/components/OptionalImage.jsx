@@ -5,8 +5,10 @@ import { BASE } from "../lib/utils.js";
 // l'une de ces extensions. Si aucun fichier n'existe, rien ne s'affiche.
 /** Noms des fichiers attendus dans public/images/ (extension libre : png, webp, jpg, gif) */
 export const IMAGES = {
-  question: "lepers-question", // pendant la question, personne n'a encore trouvé
-  found: "lepers-trouve",      // dès qu'un joueur a trouvé
+  question: "lepers-question", // quiz : pendant la question, personne n'a encore trouvé
+  found: "lepers-trouve",      // quiz : dès qu'un joueur a trouvé
+  blindQuestion: "nagui-question", // blind test : pendant le morceau, personne n'a encore trouvé
+  blindFound: "nagui-trouve",      // blind test : dès qu'un joueur a trouvé
   nobody: "personne",          // question terminée sans bonne réponse
   ranking: "classement",       // gif sous le classement final
 };

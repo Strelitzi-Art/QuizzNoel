@@ -58,6 +58,7 @@ function createYouTubePlayer(slot) {
     // Lecteur hors de la vue : on n'entend que le son, la vidéo ne révèle pas la réponse
     const holder = document.createElement("div");
     holder.className = "yt-holder";
+    holder.dataset.slot = slot;
     holder.setAttribute("aria-hidden", "true");
     const el = document.createElement("div");
     holder.appendChild(el);
@@ -143,6 +144,46 @@ export class SoundBank {
   stopAll() {
     for (const it of this.items.values()) { clearTimeout(it.timer); it.player?.pauseVideo?.(); }
   }
+}
+
+/* ---------------- Son du joueur, sur son téléphone ---------------- */
+
+/**
+ * Un seul lecteur YouTube sur le téléphone. Dans le salon d'attente, il est affiché :
+ * le joueur le touche une fois pour écouter son son, ce qui autorise ensuite le téléphone
+ * à le rejouer au moment du buzz (les navigateurs mobiles bloquent sinon le son).
+ */
+export class PhoneSound {
+  constructor() { this.snd = null; this.player = null; this.timer = null; this.key = null; }
+
+  async setSound(snd) {
+    const id = snd ? youtubeId(snd.link) : null;
+    if (!id) { this.snd = null; return; }
+    this.snd = snd;
+    const p = await createYouTubePlayer("phone");
+    this.player = p;
+    // L'extrait s'arrête tout seul à sa fin, même si le joueur a touché ▶ directement sur la vidéo
+    ytStates.set("phone", (state) => {
+      if (state !== 1 || !this.snd) return;
+      const { start, end } = this.snd;
+      let t = p.getCurrentTime?.() || start;
+      if (t < start - 0.5 || t >= end) { p.seekTo(start, true); t = start; }
+      clearTimeout(this.timer);
+      this.timer = setTimeout(() => { p.pauseVideo(); p.seekTo(start, true); }, Math.max(0.3, end - t) * 1000);
+    });
+    const key = id + "|" + snd.start;
+    if (this.key !== key) { this.key = key; p.cueVideoById({ videoId: id, startSeconds: snd.start }); }
+  }
+
+  /** Joue l'extrait : à appeler directement pendant l'appui du joueur */
+  play() {
+    const p = this.player, s = this.snd;
+    if (!p || !s) return false;
+    try { p.unMute(); p.setVolume?.(100); p.seekTo(s.start, true); p.playVideo(); } catch { return false; }
+    return true;
+  }
+
+  show(on) { document.querySelector('.yt-holder[data-slot="phone"]')?.classList.toggle("show", !!on); }
 }
 
 /* ---------------- Lecteur unifié ---------------- */
