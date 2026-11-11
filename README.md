@@ -77,7 +77,7 @@ Un lien vers un fichier audio (`https://…/chanson.mp3`) ou un fichier placé d
 
 **Vérification des réponses :** quand un joueur buzze et répond à voix haute, le maître du jeu tape ce qu'il a dit (pour la manche 1, deux champs : artiste et titre). Le maître du jeu n'a donc pas besoin de connaître les réponses par cœur.
 Trois modes, à choisir dans la config :
-- **automatique** (par défaut) : le jeu valide ou refuse tout seul ;
+- **automatique** (par défaut) : une bonne réponse est validée toute seule. Une réponse fausse reste affichée « Mauvaise réponse » et tu choisis : **Valider quand même** ou **Refuser, au suivant** (tu peux aussi corriger ta saisie et retester) ;
 - **le jeu teste, le maître du jeu confirme** : le jeu donne son avis, puis tu cliques sur Valider ou Refuser ;
 - **manuel** : uniquement les boutons Bonne / Mauvaise réponse.
 

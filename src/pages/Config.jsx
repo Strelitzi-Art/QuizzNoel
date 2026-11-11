@@ -4,7 +4,7 @@ import { LS, BASE, adminKeyFor, rid } from "../lib/utils.js";
 import { normalizeConfig, newQuestion, isValidQuestion, parseQuickAdd, toArr, BLIND_ROUNDS, TEAM_COLORS, newTrack, isValidTrack, parseTime } from "../lib/quiz.js";
 import { TrackPlayer, youtubeId, youtubeStart, youtubeThumb } from "../lib/media.js";
 import { mergeConfigs } from "../lib/merge.js";
-import { SOUNDS, playSound, unlockSounds } from "../lib/sounds.js";
+import { SOUNDS, playSound, unlockSounds, buildSoundCatalog, setSoundCatalog } from "../lib/sounds.js";
 import AdminGate from "../components/AdminGate.jsx";
 import "../styles/config.css";
 
@@ -510,6 +510,8 @@ function SoundsSection({ cfg, change, setS }) {
   const [err, setErr] = useState(null);
   const valid = (x) => x.name.trim() && youtubeId(x.link);
   const nValid = cfg.sounds.filter(valid).length;
+  // Sons possibles pour le signal de l'écran de jeu : les sons personnalisés + tous les sons intégrés
+  const signalChoices = [...buildSoundCatalog(cfg).filter((x) => x.link), ...SOUNDS];
 
   const test = (x) => {
     const p = getTester(
@@ -535,11 +537,25 @@ function SoundsSection({ cfg, change, setS }) {
       </div>
       <div className="card blind-help">
         <p>
-          Crée tes propres sons de buzzer à partir de YouTube : un nom, une icône (emoji), le lien, puis le passage à jouer
-          (<strong>3 secondes environ</strong>, 8 secondes au maximum). Les joueurs les choisissent sur leur téléphone dans le salon d'attente,
-          et ils retentissent sur l'écran de jeu à chaque buzz.
+          Chaque joueur (ou équipe) choisit son son sur son téléphone dans le salon d'attente ; il sort de son téléphone quand il buzze.
+          L'écran de jeu, lui, joue un son de signal que tu choisis ci-dessous. Tu peux créer tes propres sons à partir de YouTube :
+          un nom, une icône (emoji), le lien, puis le passage à jouer (<strong>3 secondes environ</strong>, 8 au maximum).
         </p>
-        <Check label="Proposer aussi les 14 sons intégrés (cloche, gong, laser…)" v={cfg.settings.builtinSounds} on={(v) => setS("builtinSounds", v)} />
+        <div className="signal-row">
+          <label className="field">
+            <span>Son joué sur l'écran de jeu quand quelqu'un buzze</span>
+            <select value={cfg.settings.hostBuzzSound} onChange={(e) => setS("hostBuzzSound", e.target.value)}>
+              <option value="player">Le son choisi par le joueur (ou son équipe)</option>
+              <option value="none">Aucun son</option>
+              {signalChoices.map((x) => <option key={x.id} value={x.id}>{x.icon} {x.name}</option>)}
+            </select>
+          </label>
+          {!["player", "none"].includes(cfg.settings.hostBuzzSound) && (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { unlockSounds(); setSoundCatalog(signalChoices); playSound(cfg.settings.hostBuzzSound); }}>▶ Écouter</button>
+          )}
+        </div>
+        <Check label="Le son choisi par chaque joueur sort de son téléphone quand il buzze" v={cfg.settings.phoneBuzzSound} on={(v) => setS("phoneBuzzSound", v)} />
+        <Check label="Proposer aussi les sons intégrés (cloche, gong, laser…)" v={cfg.settings.builtinSounds} on={(v) => setS("builtinSounds", v)} />
         {cfg.settings.builtinSounds && (
           <div className="builtin-sounds">
             {SOUNDS.map((x) => (

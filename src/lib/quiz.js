@@ -25,7 +25,9 @@ export const DEFAULT_SETTINGS = {
   blindLockout: true,   // un joueur refusé ne peut plus buzzer sur ce morceau
   blindShuffle: true,   // mélange les morceaux à l'intérieur de chaque manche
   blindCheck: "auto",
-  builtinSounds: true,  // proposer aussi les 14 sons intégrés en plus des sons personnalisés   // réponse au buzzer : "auto" (le jeu valide), "assist" (le jeu teste, le MJ confirme), "manual"
+  builtinSounds: true,
+  hostBuzzSound: "buzzer", // son sur l'écran de jeu à chaque buzz : un son précis, "player" (le son du joueur) ou "none"
+  phoneBuzzSound: true,    // le son choisi par le joueur sort de son téléphone quand il buzze  // proposer aussi les 14 sons intégrés en plus des sons personnalisés   // réponse au buzzer : "auto" (le jeu valide), "assist" (le jeu teste, le MJ confirme), "manual"
 };
 
 export const TEAM_COLORS = ["#e5484d", "#e2b864", "#46a771", "#7fb4ff", "#c89bff", "#ff9f5a"];

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { getDB, useDb } from "../lib/db.js";
 import { SESSION, go, ranking } from "../lib/utils.js";
 import { toArr, TEAM_COLORS } from "../lib/quiz.js";
-import { playSound, unlockSounds, setSoundCatalog, getSoundCatalog } from "../lib/sounds.js";
+import { playSound, unlockSounds, setSoundCatalog, getSoundCatalog, soundById, primeCustomSounds } from "../lib/sounds.js";
 import Timer, { useRemaining } from "../components/Timer.jsx";
 import Podium from "../components/Podium.jsx";
 import OptionalImage, { IMAGES } from "../components/OptionalImage.jsx";
@@ -56,6 +56,7 @@ function PlayerGame({ session }) {
     : ranking(players).find((p) => p.pid === pid);
   const myScore = teamMode ? myTeam?.score || 0 : me.score || 0;
   const isBlind = st.question?.type === "blind";
+  const mySound = teamMode ? myTeam?.sound : me.sound;
 
   return (
     <div className="player">
@@ -69,15 +70,16 @@ function PlayerGame({ session }) {
       {st.status === "lobby" && (
         <PlayerLobby players={players} title={st.title} myTeam={myTeam} isBlind={st.gameType === "blind"}>
           {teamMode && <TeamPicker R={R} pid={pid} me={me} teams={teams} players={players} />}
-          {st.gameType === "blind" && <SoundPicker R={R} pid={pid} me={me} teamMode={teamMode} myTeam={myTeam} players={players} teams={teams} />}
+          {st.gameType === "blind" && <SoundPicker R={R} pid={pid} me={me} teamMode={teamMode} myTeam={myTeam} players={players} teams={teams} onPhone={st.phoneSound !== false} />}
         </PlayerLobby>
       )}
       {st.status === "intro" && <PlayerIntro q={st.question} />}
       {(st.status === "question" || st.status === "closed") && !isBlind && (
         <PlayerQuestion key={`${st.gameId}-${st.qIndex}`} st={st} R={R} pid={pid} myTeam={myTeam?.id} />
       )}
+      {st.gameType === "blind" && st.phoneSound !== false && <SoundPreloader id={mySound} />}
       {(st.status === "question" || st.status === "closed") && isBlind && (
-        <PlayerBlind key={`${st.gameId}-${st.qIndex}`} st={st} R={R} pid={pid} myTeam={myTeam?.id} />
+        <PlayerBlind key={`${st.gameId}-${st.qIndex}`} st={st} R={R} pid={pid} myTeam={myTeam?.id} mySound={st.phoneSound !== false ? mySound : null} />
       )}
       {st.status === "ended" && (
         <div className="p-ended">
@@ -137,7 +139,7 @@ function TeamPicker({ R, pid, me, teams, players }) {
 }
 
 /** Choix du son de buzzer (par joueur, ou par équipe) : il sera joué sur l'écran principal à chaque buzz */
-function SoundPicker({ R, pid, me, teamMode, myTeam, players, teams }) {
+function SoundPicker({ R, pid, me, teamMode, myTeam, players, teams, onPhone }) {
   const db = getDB();
   if (teamMode && !myTeam) return <p className="muted small sound-wait">Le son de buzzer se choisit une fois que tu es dans une équipe.</p>;
   const current = teamMode ? myTeam.sound : me.sound;
@@ -157,7 +159,7 @@ function SoundPicker({ R, pid, me, teamMode, myTeam, players, teams }) {
   return (
     <div className="sound-picker">
       <h3>{teamMode ? `Le son de buzzer de ${myTeam.name}` : "Choisis ton son de buzzer"}</h3>
-      <p className="muted small">Touche un son pour l'écouter et le choisir. Il retentira sur le grand écran quand tu buzzeras.</p>
+      <p className="muted small">Touche un son pour l'écouter et le choisir. {onPhone ? "Il sortira de ton téléphone quand tu buzzeras : monte le son !" : "Il retentira sur le grand écran quand tu buzzeras."}</p>
       <div className="sound-grid">
         {SOUNDS.map((x) => {
           const owner = taken.get(x.id);
@@ -187,7 +189,7 @@ function PlayerIntro({ q }) {
 }
 
 /** Blind test : un gros buzzer. Le premier à buzzer répond à voix haute, le maître du jeu valide. */
-function PlayerBlind({ st, R, pid, myTeam }) {
+function PlayerBlind({ st, R, pid, myTeam, mySound }) {
   const db = getDB();
   const qi = st.qIndex;
   const q = st.question || {};
@@ -206,6 +208,7 @@ function PlayerBlind({ st, R, pid, myTeam }) {
 
   async function press() {
     if (!canBuzz) return;
+    if (mySound) playSound(mySound); // le son part tout de suite, pendant l'appui
     const n = Math.max(sent, result?.n || 0, mine?.n || 0) + 1;
     setSent(n);
     setPressed(true);
@@ -332,4 +335,13 @@ function PlayerQuestion({ st, R, pid, myTeam }) {
       {st.revealed && <div className="p-revealed">La réponse était : <strong>{st.revealed}</strong></div>}
     </div>
   );
+}
+
+/** Précharge le son YouTube choisi par le joueur pour qu'il parte sans délai quand il buzze */
+function SoundPreloader({ id }) {
+  useEffect(() => {
+    const snd = id && soundById(id);
+    if (snd?.link) primeCustomSounds([snd]);
+  }, [id]);
+  return null;
 }

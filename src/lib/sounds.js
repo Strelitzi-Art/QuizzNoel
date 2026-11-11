@@ -4,6 +4,7 @@ import { SoundBank, youtubeId, youtubeStart } from "./media.js";
 import { parseTime } from "./quiz.js";
 
 export const SOUNDS = [
+  { id: "buzzer", name: "Buzzer TV", icon: "📺", color: "#ff6b6b" },
   { id: "cloche", name: "Cloche", icon: "🔔", color: "#f7dd9e" },
   { id: "grelots", name: "Grelots", icon: "🛷", color: "#ffd166" },
   { id: "klaxon", name: "Klaxon", icon: "📯", color: "#ff9f5a" },
@@ -111,6 +112,10 @@ function noise(c, { t0 = 0, dur = 0.1, vol = 0.2, freq = 6000, q = 2 }) {
 const NOTE = { C5: 523.25, E5: 659.25, G5: 783.99, B5: 987.77, C6: 1046.5, D6: 1174.66, E6: 1318.5 };
 
 const RECIPES = {
+  buzzer: (c) => {
+    tone(c, { type: "square", f: 110, dur: 0.75, vol: 0.12, lp: 1300, attack: 0.01 });
+    tone(c, { type: "sawtooth", f: 116, dur: 0.75, vol: 0.1, lp: 1300, attack: 0.01 });
+  },
   cloche: (c) => {
     tone(c, { f: 880, dur: 1.4, vol: 0.3 });
     tone(c, { f: 1778, dur: 0.8, vol: 0.1 });

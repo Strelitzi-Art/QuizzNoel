@@ -115,7 +115,7 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
     return {
       status: "lobby", qIndex: -1, total: deck.length, title: s.title, gameType: type,
       hideScores: !!s.hideScores, lateJoin: !!s.lateJoin, mode: s.mode, scoring: s.scoring !== false,
-      teams: !!s.teams, attempts: Number(s.attempts) || 0, timer: Number(s.timer) || 0, gameId: rid(),
+      teams: !!s.teams, phoneSound: s.phoneBuzzSound !== false, attempts: Number(s.attempts) || 0, timer: Number(s.timer) || 0, gameId: rid(),
     };
   }
   function teamsFromSettings(s) {
@@ -405,7 +405,8 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
     // Le premier de la file garde la parole ; les autres sont classés par vitesse
     B.queue = wasEmpty ? fresh.sort(byTime) : [B.queue[0], ...[...B.queue.slice(1), ...fresh].sort(byTime)];
     if (wasEmpty) pauseAudio();
-    fresh.sort(byTime).forEach((b, i) => setTimeout(() => playSound(soundOf(b.pid)), i * 300));
+    const signal = curRef.current?.settings?.hostBuzzSound ?? "buzzer";
+    if (signal !== "none") fresh.sort(byTime).forEach((b, i) => setTimeout(() => playSound(signal === "player" ? soundOf(b.pid) : signal), i * 300));
     await db.update(R, { "state/queue": B.queue, "state/phase": "buzzed" });
   }
 
@@ -872,9 +873,11 @@ function AnswerEntry({ q, who, mode, onValidate, onRefuse }) {
     if (done || !a.trim()) return;
     const v = checkBlind(q, a, b);
     setVerdict(v);
-    if (mode === "auto") {
+    // Bonne réponse en mode automatique : validée toute seule.
+    // Mauvaise réponse : on reste sur « faux », le maître du jeu décide (valider quand même ou passer au suivant).
+    if (mode === "auto" && v.ok) {
       setDone(true);
-      setTimeout(() => (v.ok ? onValidate() : onRefuse()), 1300);
+      setTimeout(onValidate, 1300);
     }
   }
   const decide = (ok) => { setDone(true); ok ? onValidate() : onRefuse(); };
@@ -907,14 +910,21 @@ function AnswerEntry({ q, who, mode, onValidate, onRefuse }) {
             {verdict.ok ? "✓ Bonne réponse !" : "✗ Mauvaise réponse"}
           </div>
         )}
-        {mode === "assist" && verdict && !done && (
+        {verdict && !done && (mode === "assist" || !verdict.ok) && (
           <>
-            <button type="button" className="btn btn-ok btn-big" onClick={() => decide(true)}>✓ Valider</button>
-            <button type="button" className="btn btn-danger btn-big" onClick={() => decide(false)}>✗ Refuser</button>
+            <button type="button" className="btn btn-ok btn-big" onClick={() => decide(true)}>
+              {verdict.ok ? "✓ Valider" : "✓ Valider quand même"}
+            </button>
+            <button type="button" className="btn btn-danger btn-big" onClick={() => decide(false)}>
+              {verdict.ok ? "✗ Refuser" : "✗ Refuser, au suivant"}
+            </button>
           </>
         )}
       </div>
-      {!done && (
+      {verdict && !verdict.ok && !done && (
+        <div className="ae-override">Faute de frappe dans ta saisie ? Corrige-la puis appuie sur Entrée pour retester.</div>
+      )}
+      {!done && !verdict && (
         <div className="ae-override">
           Décider soi-même :
           <button type="button" onClick={() => decide(true)}>✓ accepter</button>

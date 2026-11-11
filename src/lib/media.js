@@ -123,9 +123,13 @@ export class SoundBank {
   }
 
   /** Joue le son (entre son début et sa fin) */
-  async play(snd) {
-    await this.load(snd);
-    const item = this.items.get(snd.id);
+  play(snd) {
+    const ready = this.items.get(snd.id);
+    if (ready?.player && ready.key.startsWith(snd.id + "|")) return this.start(ready);
+    return this.load(snd).then(() => this.start(this.items.get(snd.id)));
+  }
+
+  start(item) {
     const p = item?.player;
     if (!p) return;
     clearTimeout(item.timer);
