@@ -1,0 +1,15 @@
+Dépose ici tes images (extension au choix : .png, .webp, .jpg, .jpeg ou .gif).
+Elles s'affichent automatiquement ; tant qu'un fichier est absent, rien ne s'affiche à sa place.
+
+  lepers-question   -> pendant une question, tant que personne n'a trouvé (il pointe vers la question)
+  lepers-trouve     -> dès qu'un joueur a trouvé la bonne réponse
+  personne          -> la question est terminée et personne n'a trouvé
+  classement        -> gif affiché sous le classement final
+  background.jpg    -> fond du site (remplaçable)
+
+Exemple : lepers-question.png, lepers-trouve.png, personne.png, classement.gif
+
+L'image du présentateur s'affiche à GAUCHE de la question.
+Si sur ta photo il pointe vers la gauche, ouvre src/styles/host.css et passe
+"order: 0" à "order: 3" dans le bloc ".presenter".
+Les PNG à fond transparent rendent le mieux.

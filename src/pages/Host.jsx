@@ -5,6 +5,7 @@ import { normalizeConfig, buildDeck, answerText, checkAnswer } from "../lib/quiz
 import AdminGate from "../components/AdminGate.jsx";
 import Timer, { useRemaining } from "../components/Timer.jsx";
 import Podium from "../components/Podium.jsx";
+import OptionalImage, { IMAGES, preloadImages } from "../components/OptionalImage.jsx";
 import "../styles/host.css";
 
 const LETTERS = "ABCDEFGH";
@@ -57,6 +58,7 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
 
   // ---------- Initialisation de la salle ----------
   useEffect(() => {
+    preloadImages(Object.values(IMAGES));
     (async () => {
       const s = await db.get(`${R}/state`);
       const cur = await db.get(`q/${adminKey}/current`);
@@ -223,7 +225,12 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
         {(st.status === "question" || st.status === "closed") && (
           <QuestionView st={st} answers={answers} found={found} playerCount={playerCount} deckQ={current?.deck?.[qi]} />
         )}
-        {st.status === "ended" && <Podium players={players} />}
+        {st.status === "ended" && (
+          <div className="final-wrap">
+            <Podium players={players} />
+            <OptionalImage name={IMAGES.ranking} className="final-gif" />
+          </div>
+        )}
       </main>
 
       <div className="host-controls">
@@ -298,8 +305,10 @@ function QuestionView({ st, answers, found, playerCount, deckQ }) {
   const counts = {};
   if (q.type === "qcm") for (const a of Object.values(answers || {})) counts[a.v] = (counts[a.v] || 0) + 1;
   const showCounts = st.status === "closed" && q.type === "qcm";
+  const presenter = foundList.length > 0 ? IMAGES.found : st.status === "closed" ? IMAGES.nobody : IMAGES.question;
   return (
     <div className="qview">
+      <OptionalImage name={presenter} className="presenter" />
       <div className="qview-main">
         {q.cat && <div className="q-cat">{q.cat}</div>}
         <Timer endsAt={st.status === "question" ? st.endsAt : null} total={st.timer} />

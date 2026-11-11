@@ -53,6 +53,20 @@ Seul le premier marque ou tous ceux qui trouvent · points par bonne réponse ·
 ### Pendant la partie (écran maître du jeu)
 **Révéler la réponse**, **Clore la question**, **Question suivante**, **Terminer la partie** (podium et classement), **Masquer/Afficher les points** dans la barre du bas. À la fin : **Rejouer avec les mêmes joueurs** ou **Nouvelle partie**. Dans le salon, la croix à côté d'un pseudo retire le joueur.
 
+## Images personnalisées (facultatif)
+
+Dépose tes fichiers dans `public/images/`. L'extension est libre (png, webp, jpg ou gif). Ils s'affichent automatiquement, et tant qu'un fichier est absent, rien ne s'affiche à sa place.
+
+| Fichier | Quand |
+|---|---|
+| `lepers-question` | Pendant une question, tant que personne n'a trouvé (à gauche de la question) |
+| `lepers-trouve` | Dès qu'un joueur a trouvé |
+| `personne` | Question terminée sans bonne réponse |
+| `classement` | Sous le classement final (écran principal et portables) |
+| `background.jpg` | Fond du site |
+
+Les PNG à fond transparent rendent le mieux pour le présentateur. Pour l'afficher à droite au lieu de la gauche, remplace `order: 0` par `order: 3` dans `.presenter` (`src/styles/host.css`).
+
 ## Développement local
 
 ```bash

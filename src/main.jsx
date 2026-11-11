@@ -25,6 +25,9 @@ function route() {
   return <Home />;
 }
 
+// Image de fond (public/images/background.jpg), remplaçable sans toucher au code
+document.documentElement.style.setProperty("--bg-image", `url("${BASE}images/background.jpg")`);
+
 const root = createRoot(document.getElementById("root"));
 initDB(firebaseConfig)
   .then((db) => {

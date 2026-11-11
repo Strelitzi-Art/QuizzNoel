@@ -3,6 +3,7 @@ import { getDB, useDb } from "../lib/db.js";
 import { SESSION, go, ranking } from "../lib/utils.js";
 import Timer, { useRemaining } from "../components/Timer.jsx";
 import Podium from "../components/Podium.jsx";
+import OptionalImage, { IMAGES } from "../components/OptionalImage.jsx";
 import "../styles/player.css";
 
 const LETTERS = "ABCDEFGH";
@@ -57,9 +58,10 @@ function PlayerGame({ session }) {
       )}
       {st.status === "ended" && (
         <div className="p-ended">
-          <h2>Partie terminée !</h2>
+          <h2>Partie terminée</h2>
           {myRank && <p className="p-myrank">Tu termines <strong>{myRank.rank === 1 ? "1er 🏆" : myRank.rank + "e"}</strong> avec {myRank.score} pt{myRank.score > 1 ? "s" : ""}</p>}
           <Podium players={players} highlight={pid} />
+          <OptionalImage name={IMAGES.ranking} className="final-gif" />
         </div>
       )}
     </div>

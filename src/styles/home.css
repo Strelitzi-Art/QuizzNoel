@@ -1,7 +1,7 @@
 .home-head { text-align: center; }
-.home .title { font-size: clamp(30px, 8vw, 52px); margin: 8px 0; color: var(--gold-2); text-shadow: 0 0 30px rgba(217,181,106,0.35); }
+.home .title { font-size: clamp(30px, 8vw, 54px); margin: 8px 0; color: var(--gold-2); text-shadow: 0 0 30px rgba(226,184,100,0.4), 0 2px 0 rgba(0,0,0,0.4); }
 .card.join, .card.gate { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 16px; }
-.card.gate h1 { text-align: center; font-size: 22px; }
+.card.gate h1 { text-align: center; font-size: 22px; color: var(--gold-2); }
 .card.join .btn-big { width: 100%; }
 .home-links { display: flex; gap: 10px; font-size: 13px; color: var(--muted); margin-top: 12px; }
 .home-links a { color: var(--muted); }

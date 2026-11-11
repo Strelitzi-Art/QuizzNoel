@@ -14,21 +14,22 @@
 .cat.disabled { opacity: 0.6; }
 .cat-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .cat-name { flex: 1; min-width: 160px; font-weight: 700; font-size: 17px; }
-.badge { font-size: 13px; color: var(--muted); background: rgba(255,255,255,0.06); padding: 4px 10px; border-radius: 999px; }
+.badge { font-size: 13px; color: var(--gold-2); background: rgba(226,184,100,0.14); border: 1px solid var(--line); padding: 4px 10px; border-radius: 999px; }
 .cat-body { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
 
-.q-edit { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; background: rgba(0,0,0,0.22); border: 1px solid rgba(255,255,255,0.08); }
-.q-edit.invalid { border-color: rgba(255,122,122,0.35); }
+.q-edit { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,220,180,0.1); }
+.q-edit.invalid { border-color: rgba(255,176,163,0.4); }
 .q-edit-head { display: flex; align-items: center; gap: 8px; }
 .q-edit-head select { width: auto; padding: 6px 10px; }
 .q-num { font-weight: 700; color: var(--gold); min-width: 32px; }
 .warn { font-size: 12px; color: var(--ko); }
 .q-choices { display: flex; flex-direction: column; gap: 6px; }
+.q-choices > .btn { align-self: flex-start; }
 .q-choice { display: flex; align-items: center; gap: 8px; }
-.q-choice.good input:not([type="radio"]) { border-color: rgba(94,227,154,0.6); }
+.q-choice.good input:not([type="radio"]) { border-color: rgba(127,214,162,0.6); }
 .q-image { font-size: 13px; padding: 8px 12px; }
 
-.quick { border-top: 1px dashed rgba(255,255,255,0.12); padding-top: 10px; }
+.quick { border-top: 1px dashed rgba(255,220,180,0.16); padding-top: 10px; }
 .quick summary { cursor: pointer; color: var(--gold); font-weight: 600; }
 .quick textarea { margin: 8px 0; font-family: ui-monospace, monospace; font-size: 14px; }
 
@@ -39,4 +40,3 @@
   color: var(--muted); font-size: 14px; white-space: nowrap;
 }
 .save-bar.dirty { border-color: var(--gold); color: var(--gold-2); }
-.q-choices > .btn { align-self: flex-start; }
