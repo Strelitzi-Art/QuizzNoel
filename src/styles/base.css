@@ -191,9 +191,9 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
 .r-score { font-weight: 700; }
 
 /* Images facultatives (présentateur, gif) */
-.opt-img img { display: block; max-width: 100%; height: auto; animation: fadeIn .4s ease-out; }
+.opt-img img { display: block; max-width: 100%; height: 38vh; animation: fadeIn .4s ease-out; }
 .final-gif { display: flex; justify-content: center; }
-.final-gif img { max-height: 32vh; border-radius: 14px; border: 1px solid var(--line); box-shadow: 0 12px 40px rgba(0,0,0,0.45); }
+.final-gif img { max-height: 38vh; border-radius: 14px; border: 1px solid var(--line); box-shadow: 0 12px 40px rgba(0,0,0,0.45); }
 
 @keyframes pulse { 50% { opacity: 0.5; } }
 @keyframes pop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
