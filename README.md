@@ -53,6 +53,42 @@ Seul le premier marque ou tous ceux qui trouvent · points par bonne réponse ·
 ### Pendant la partie (écran maître du jeu)
 **Révéler la réponse**, **Clore la question**, **Question suivante**, **Terminer la partie** (podium et classement), **Masquer/Afficher les points** dans la barre du bas. À la fin : **Rejouer avec les mêmes joueurs** ou **Nouvelle partie**. Dans le salon, la croix à côté d'un pseudo retire le joueur.
 
+## Équipes
+
+Dans la config, coche **Jouer en équipes** et choisis le nombre d'équipes (2 à 6) et leurs noms.
+Dans le salon d'attente de l'écran de jeu, clique sur un joueur pour le changer d'équipe, ou sur **Répartir au hasard**.
+Les joueurs sans équipe sont répartis automatiquement au lancement, tout comme ceux qui arrivent en cours de partie.
+Une bonne réponse rapporte le point à l'équipe, et une seule fois par question : les coéquipiers ne peuvent plus répondre.
+
+## Blind test
+
+Dans le salon d'attente, choisis **Quiz** ou **Blind test** avant de lancer. Les points des deux jeux ne se cumulent pas.
+
+Il y a trois manches, chacune peut être désactivée :
+1. **Artiste & titre** ;
+2. **Film, série ou jeu vidéo** d'où vient la musique ;
+3. **La suite des paroles** : l'extrait se coupe net et il faut trouver la suite.
+
+**Ajouter un morceau :** colle le **lien YouTube**, indique le début et la fin de l'extrait (`45` ou `1:05`), puis la réponse.
+Si le lien contient déjà un temps (`?t=90`), il est repris comme début. Pour la manche 3, la « fin » correspond au moment de la coupure.
+**▶ Tester** joue l'extrait directement dans la config, et le menu de chaque morceau permet de le **déplacer dans une autre manche**.
+Seul le son est joué, la vidéo reste cachée pour ne pas dévoiler la réponse. Certaines vidéos, souvent les clips officiels, interdisent la lecture hors de YouTube : le test te le signale, prends alors une version « lyrics » ou « audio ».
+Un lien vers un fichier audio (`https://…/chanson.mp3`) ou un fichier placé dans `public/audio/` fonctionne aussi.
+
+**Sons de buzzer :** dans le salon d'attente, chaque joueur (ou chaque équipe) choisit son son sur son téléphone. Il y en a 14, tous différents.
+Ceux qui n'ont rien choisi reçoivent un son libre au lancement. Le son retentit sur l'écran du maître du jeu à chaque buzz, avec une explosion de couleur et le nom du joueur.
+
+**Déroulé :** pendant l'extrait, un vinyle tourne sur l'écran principal (clique dessus pour mettre en pause ou relancer) et chaque joueur a un gros bouton **BUZZ**.
+Au premier buzz, la musique se met en pause. Le joueur répond à voix haute et le maître du jeu clique sur **✓ Bonne réponse** (touche `V`) ou **✗ Mauvaise réponse** (touche `X`).
+Ceux qui ont buzzé ensuite forment une file, classée par vitesse. Après un refus, c'est au suivant de répondre. Quand la file est vide, l'extrait reprend.
+Par défaut, un joueur refusé ne peut plus buzzer sur ce morceau (réglable). Si personne ne trouve : **Révéler la réponse**, puis **Morceau suivant**.
+
+## Remplir la config à plusieurs
+
+Toutes les personnes qui ont le mot de passe de configuration peuvent la modifier en même temps, depuis des ordinateurs différents.
+À l'enregistrement, les modifications sont **fusionnées** : les ajouts de chacun sont conservés, et une suppression n'efface pas un élément que quelqu'un d'autre vient de modifier.
+Si tu n'as rien en cours, les ajouts des autres apparaissent en direct. Sinon, un message te prévient qu'ils seront fusionnés à l'enregistrement.
+
 ## Images personnalisées (facultatif)
 
 Dépose tes fichiers dans `public/images/`. L'extension est libre (png, webp, jpg ou gif). Ils s'affichent automatiquement, et tant qu'un fichier est absent, rien ne s'affiche à sa place.

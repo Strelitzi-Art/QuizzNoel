@@ -80,3 +80,32 @@
   .section-head .row .btn { flex: 1 1 auto; white-space: nowrap; padding: 7px 10px; font-size: 13px; }
   .save-bar { left: 10px; right: 10px; transform: none; justify-content: space-between; white-space: normal; padding: 8px 8px 8px 16px; font-size: 13px; }
 }
+
+/* ====== Équipes ====== */
+.team-count { max-width: 240px; margin: 14px 0; }
+.team-names { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: 10px; }
+.team-name { display: flex; align-items: center; gap: 8px; }
+.team-name .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--team); flex: none; box-shadow: 0 0 10px var(--team); }
+.team-name input { border-color: color-mix(in srgb, var(--team) 50%, transparent); }
+
+/* ====== Blind test ====== */
+.blind-help { margin-bottom: 14px; }
+.blind-help p { margin: 0 0 8px; line-height: 1.5; }
+.round-tag { font-family: var(--font-title); color: var(--gold); font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; }
+.track-file { display: flex; gap: 8px; align-items: center; }
+.track-file input { flex: 1; min-width: 0; }
+.track-file .btn { flex: none; }
+.track-times { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.track-answers { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.track .field { font-size: 12px; gap: 4px; }
+@media (max-width: 600px) {
+  .track-answers { grid-template-columns: 1fr; }
+  .round-tag { flex: 1 1 calc(100% - 40px); }
+}
+.yt-thumb { width: 64px; height: 36px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); flex: none; }
+.move-round { width: auto; max-width: 170px; padding: 5px 8px; font-size: 12px; }
+.test-err { font-size: 13px; line-height: 1.4; }
+.save-bar .others { display: block; color: var(--gold-2); font-size: 12px; margin-top: 2px; white-space: normal; }
+@media (max-width: 600px) {
+  .move-round { max-width: 100%; flex: 1 1 100%; order: 10; }
+}

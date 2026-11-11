@@ -8,8 +8,9 @@ export default function Podium({ players, highlight }) {
     <div className="final">
       {winners.length > 0 && (
         <h2 className="winner">
-          {winners.length > 1 ? "Égalité ! " : "Victoire de "}
+          {winners.length > 1 && "Égalité ! "}
           <strong>{winners.map((w) => w.name).join(" & ")}</strong>
+          {winners.length > 1 ? " remportent la partie" : " remporte la partie"}
         </h2>
       )}
       <div className="podium">

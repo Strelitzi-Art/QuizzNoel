@@ -224,6 +224,10 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
 /* Écran du maître du jeu : le décor se place au-dessus de la barre des scores */
 body[data-page="host"] .deco-tree { bottom: 74px; opacity: 0.4; }
 body[data-page="host"] .deco-ginger { bottom: 84px; }
+body[data-page="host"] .bauble.b1 { left: 17%; }
+body[data-page="host"] .bauble.b2 { left: 27%; }
+body[data-page="host"] .bauble.b3 { right: 42%; }
+body[data-page="host"] .bauble.b4 { right: 35%; }
 /* Config : on garde le décor discret derrière les formulaires */
 body[data-page="config"] .deco-ginger, body[data-page="config"] .deco-tree { opacity: 0.25; }
 
@@ -245,3 +249,17 @@ body[data-page="config"] .deco-ginger, body[data-page="config"] .deco-tree { opa
   .snow { display: none; }
   .bauble, .tree-star { animation: none; }
 }
+
+/* ====== Équipes / blind test (partagé) ====== */
+.small { font-size: 13px; }
+.btn-ok {
+  background: linear-gradient(180deg, #8fe0ae, #3f9e67); color: #08240f; border-color: rgba(220,255,230,0.6);
+  box-shadow: 0 4px 22px rgba(70, 167, 113, 0.35), inset 0 1px 0 rgba(255,255,255,0.5);
+}
+.btn-ok:hover:not(:disabled) { filter: brightness(1.07); }
+kbd { font: 600 12px var(--font); padding: 1px 6px; border-radius: 5px; border: 1px solid currentColor; opacity: 0.6; margin-left: 4px; }
+.chip[style*="--team"] { border-color: var(--team); box-shadow: inset 4px 0 0 var(--team); }
+.round-num { font-family: var(--font-title); color: var(--gold); letter-spacing: 0.25em; text-transform: uppercase; font-size: 15px; }
+
+/* Lecteur YouTube : hors de l'écran, on n'entend que le son */
+.yt-holder { position: fixed; left: -10000px; top: 0; width: 320px; height: 180px; pointer-events: none; }

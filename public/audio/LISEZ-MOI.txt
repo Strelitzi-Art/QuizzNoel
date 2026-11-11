@@ -1,0 +1,5 @@
+Le blind test utilise des liens YouTube : rien à mettre ici.
+
+Ce dossier reste disponible si tu veux utiliser tes propres fichiers audio :
+dépose-les ici et indique leur nom (ex : chanson.mp3) à la place du lien YouTube.
+Attention : le repo GitHub est public, n'importe qui pourrait les télécharger.

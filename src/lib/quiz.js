@@ -17,7 +17,84 @@ export const DEFAULT_SETTINGS = {
   lateJoin: true,       // autorise à rejoindre une partie déjà lancée
   showPassword: true,   // affiche le mot de passe joueurs sur l'écran du maître du jeu
   hideScores: false,    // points masqués au démarrage
+  // Équipes
+  teams: false,         // jouer en équipes (une bonne réponse = un point pour l'équipe)
+  teamCount: 2,         // 2 à 6 équipes
+  teamNames: ["Équipe Rouge", "Équipe Or", "Équipe Sapin", "Équipe Neige", "Équipe Étoile", "Équipe Cannelle"],
+  // Blind test
+  blindLockout: true,   // un joueur refusé ne peut plus buzzer sur ce morceau
+  blindShuffle: true,   // mélange les morceaux à l'intérieur de chaque manche
 };
+
+export const TEAM_COLORS = ["#e5484d", "#e2b864", "#46a771", "#7fb4ff", "#c89bff", "#ff9f5a"];
+
+/** Les 3 manches du blind test */
+export const BLIND_ROUNDS = [
+  { kind: "artist", name: "Artiste & titre", prompt: "Trouvez l'artiste et le titre", a1: "Artiste", a2: "Titre" },
+  { kind: "source", name: "Film, série ou jeu vidéo", prompt: "De quel film, série ou jeu vient cette musique ?", a1: "Film / série / jeu", a2: "Titre de la chanson (optionnel)" },
+  { kind: "lyrics", name: "La suite des paroles", prompt: "Trouvez la suite des paroles", a1: "Suite des paroles", a2: "Artiste – titre (optionnel)" },
+];
+
+/** "1:23" -> 83, "45" -> 45, "" -> null */
+export function parseTime(v) {
+  if (v === "" || v == null) return null;
+  if (typeof v === "number") return v;
+  const parts = String(v).trim().replace(",", ".").split(":").map(Number);
+  if (parts.some((n) => Number.isNaN(n))) return null;
+  return parts.reduce((acc, n) => acc * 60 + n, 0);
+}
+export function formatTime(sec) {
+  if (sec == null || sec === "") return "";
+  const m = Math.floor(sec / 60), s = Math.round((sec % 60) * 10) / 10;
+  return m ? `${m}:${String(s).padStart(2, "0")}` : String(s);
+}
+
+export function newTrack() {
+  return { id: rid(4), link: "", start: "", end: "", answer: "", answer2: "" };
+}
+
+export function isValidTrack(t, kind) {
+  const start = parseTime(t.start) ?? 0, end = parseTime(t.end);
+  if (!t.link.trim() || !t.answer.trim()) return false;
+  if (end != null && end <= start) return false;
+  if (kind === "lyrics" && end == null) return false; // il faut savoir où couper
+  return true;
+}
+
+function blindAnswerText(kind, t) {
+  const a = t.answer.trim(), b = (t.answer2 || "").trim();
+  if (kind === "artist") return b ? `${a} — ${b}` : a;
+  return b ? `${a} (${b})` : a;
+}
+
+export function buildBlindDeck(cfg) {
+  const s = cfg.settings;
+  const deck = [];
+  cfg.blind.forEach((round, ri) => {
+    if (!round.enabled) return;
+    const meta = BLIND_ROUNDS[ri];
+    let tracks = round.tracks.filter((t) => isValidTrack(t, meta.kind));
+    if (s.blindShuffle) tracks = shuffled(tracks);
+    for (const t of tracks) {
+      const start = parseTime(t.start) ?? 0;
+      const end = parseTime(t.end) ?? start + 20;
+      deck.push({
+        type: "blind", round: ri + 1, kind: meta.kind, roundName: round.name || meta.name, prompt: meta.prompt,
+        link: t.link.trim(), start, end, answerText: blindAnswerText(meta.kind, t),
+      });
+    }
+  });
+  return deck;
+}
+
+function shuffled(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 export const toArr = (v) => (Array.isArray(v) ? v.filter((x) => x != null) : v && typeof v === "object" ? Object.values(v) : []);
 
@@ -29,7 +106,13 @@ export function normalizeConfig(c) {
   c = c || {};
   return {
     gamePassword: c.gamePassword || "",
-    settings: { ...DEFAULT_SETTINGS, ...(c.settings || {}) },
+    settings: (() => {
+      const st = { ...DEFAULT_SETTINGS, ...(c.settings || {}) };
+      const names = toArr(st.teamNames);
+      st.teamNames = DEFAULT_SETTINGS.teamNames.map((d, i) => names[i] || d);
+      st.teamCount = Math.min(6, Math.max(2, Number(st.teamCount) || 2));
+      return st;
+    })(),
     categories: toArr(c.categories).map((cat) => ({
       id: cat.id || rid(4),
       name: cat.name || "Sans nom",
@@ -48,6 +131,17 @@ export function normalizeConfig(c) {
         };
       }),
     })),
+    blind: BLIND_ROUNDS.map((meta, i) => {
+      const r = toArr(c.blind)[i] || {};
+      return {
+        name: (r.name === "Film ou jeu vidéo" ? "" : r.name) || meta.name,
+        enabled: r.enabled !== false,
+        tracks: toArr(r.tracks).map((t) => ({
+          id: t.id || rid(4), link: t.link || t.file || "", start: t.start ?? "", end: t.end ?? "",
+          answer: t.answer || "", answer2: t.answer2 || "",
+        })),
+      };
+    }),
   };
 }
 
@@ -94,18 +188,14 @@ export function buildDeck(cfg) {
       }
     }
   }
-  if (s.shuffle) {
-    for (let i = deck.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [deck[i], deck[j]] = [deck[j], deck[i]];
-    }
-  }
+  if (s.shuffle) deck = shuffled(deck);
   if (s.maxQuestions > 0) deck = deck.slice(0, s.maxQuestions);
   return deck;
 }
 
 export function answerText(q) {
   if (!q) return "";
+  if (q.type === "blind") return q.answerText || "";
   if (q.type === "qcm") return q.choices[q.correct] ?? "";
   return (q.answers || "").split("|").map((a) => a.trim()).filter(Boolean)[0] || "";
 }
