@@ -161,3 +161,4 @@ body:has(.yt-holder.show) .player { padding-bottom: 200px; }
 .sound-test { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 10px 0 4px; font-size: 13px; }
 .sound-test .st-ok { color: var(--ok); font-weight: 600; }
 .sound-test .st-ko { color: var(--ko); line-height: 1.4; }
+.sound-test .st-why { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }

@@ -177,6 +177,32 @@ export class LoopMusic {
   }
 }
 
+/* ---------------- Bip de secours (généré par le téléphone, jamais bloqué après un toucher) ---------------- */
+
+let beepCtx = null;
+/** À appeler pendant un toucher : prépare le son du téléphone */
+export function readyBeep() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  if (!beepCtx) beepCtx = new AC();
+  if (beepCtx.state === "suspended") beepCtx.resume();
+}
+export function playBeep() {
+  if (!beepCtx) return;
+  const now = beepCtx.currentTime;
+  [880, 1320].forEach((f, i) => {
+    const o = beepCtx.createOscillator(), g = beepCtx.createGain();
+    o.type = "triangle";
+    o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, now + i * 0.12);
+    g.gain.exponentialRampToValueAtTime(0.5, now + i * 0.12 + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.12 + 0.35);
+    o.connect(g).connect(beepCtx.destination);
+    o.start(now + i * 0.12);
+    o.stop(now + i * 0.12 + 0.4);
+  });
+}
+
 /* ---------------- Son du joueur, sur son téléphone ---------------- */
 
 /**
@@ -185,7 +211,7 @@ export class LoopMusic {
  * à le rejouer au moment du buzz (les navigateurs mobiles bloquent sinon le son).
  */
 export class PhoneSound {
-  constructor() { this.snd = null; this.mode = null; this.player = null; this.audio = null; this.timer = null; this.key = null; this.url = null; }
+  constructor() { this.snd = null; this.mode = null; this.player = null; this.audio = null; this.timer = null; this.key = null; this.url = null; this.lastError = ""; }
 
   async setSound(snd) {
     this.snd = snd || null;
@@ -201,6 +227,7 @@ export class PhoneSound {
       return;
     }
     this.mode = "yt";
+    ytErrors.set("phone", (msg) => { this.lastError = msg; });
     const p = await createYouTubePlayer("phone");
     this.player = p;
     // L'extrait s'arrête tout seul à sa fin, même si le joueur a touché ▶ directement sur la vidéo
@@ -237,26 +264,32 @@ export class PhoneSound {
    */
   play() {
     const s = this.snd;
+    readyBeep(); // préparé pendant le toucher, au cas où il faudrait le bip de secours
     if (!s) return Promise.resolve(false);
     clearTimeout(this.timer);
+    this.lastError = "";
     if (this.mode === "audio" && this.audio) {
       const a = this.audio;
       this.wantPlay = true;
       a.muted = false;
       try { a.currentTime = s.start || 0; } catch { /* pas encore chargé */ }
       this.timer = setTimeout(() => { a.pause(); this.wantPlay = false; }, Math.max(0.3, s.end - s.start) * 1000);
-      return a.play().then(() => true, () => false);
+      return a.play().then(() => true, (e) => { this.lastError = "Le téléphone a refusé de lire le fichier (" + e.name + ")"; playBeep(); return false; });
     }
     const p = this.player;
-    if (!p) return Promise.resolve(false);
-    try { p.unMute(); p.setVolume?.(100); p.seekTo(s.start, true); p.playVideo(); } catch { return Promise.resolve(false); }
-    // YouTube : on regarde si la vidéo se met bien en lecture dans la seconde et demie
+    if (!p) { this.lastError = "Le lecteur YouTube n'est pas encore chargé"; playBeep(); return Promise.resolve(false); }
+    try { p.unMute(); p.setVolume?.(100); p.seekTo(s.start, true); p.playVideo(); } catch (e) { this.lastError = String(e.message || e); playBeep(); return Promise.resolve(false); }
+    // YouTube : si la vidéo ne démarre pas très vite, le téléphone l'a bloquée -> bip de secours
     return new Promise((resolve) => {
       const t0 = Date.now();
       const check = () => {
         if (p.getPlayerState?.() === 1) return resolve(true);
-        if (Date.now() - t0 > 1500) return resolve(false);
-        setTimeout(check, 100);
+        if (this.lastError || Date.now() - t0 > 700) {
+          if (!this.lastError) this.lastError = "Le téléphone a bloqué la lecture YouTube (état du lecteur : " + (p.getPlayerState?.() ?? "?") + ")";
+          playBeep();
+          return resolve(false);
+        }
+        setTimeout(check, 60);
       };
       check();
     });

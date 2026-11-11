@@ -362,9 +362,11 @@ function PhoneSoundSync({ id, show }) {
 /** « Tester mon son » : vérifie que le téléphone accepte de jouer le son du buzzer */
 function SoundTester() {
   const [state, setState] = useState("idle"); // idle | playing | ok | blocked
+  const [why, setWhy] = useState("");
   function test() {
     setState("playing");
-    phoneSound().play().then((ok) => setState(ok ? "ok" : "blocked"));
+    const ps = phoneSound();
+    ps.play().then((ok) => { setState(ok ? "ok" : "blocked"); setWhy(ps.lastError); });
   }
   return (
     <div className="sound-test">
@@ -372,8 +374,9 @@ function SoundTester() {
       {state === "ok" && <span className="st-ok">✓ Ça marche ! Ton téléphone jouera ce son quand tu buzzeras.</span>}
       {state === "blocked" && (
         <span className="st-ko">
-          Pas de son ? Vérifie le volume et le mode silencieux, puis touche <strong>▶ directement sur la petite vidéo</strong> en bas de l'écran
-          (s'il y en a une) et réessaie.
+          Ton téléphone a bloqué ton son : tu entendras un <strong>bip de secours</strong> à la place quand tu buzzeras.
+          Pour avoir ton vrai son, touche <strong>▶ directement sur la petite vidéo</strong> en bas de l'écran (s'il y en a une), puis reteste.
+          {why && <small className="st-why">Détail : {why}</small>}
         </span>
       )}
     </div>
