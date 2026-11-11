@@ -109,3 +109,4 @@
 @media (max-width: 600px) {
   .move-round { max-width: 100%; flex: 1 1 100%; order: 10; }
 }
+.check-mode { margin: 8px 0 4px; }

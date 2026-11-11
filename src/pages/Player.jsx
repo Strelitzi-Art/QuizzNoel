@@ -66,6 +66,7 @@ function PlayerGame({ session }) {
 
       {st.status === "lobby" && (
         <PlayerLobby players={players} title={st.title} myTeam={myTeam} isBlind={st.gameType === "blind"}>
+          {teamMode && <TeamPicker R={R} pid={pid} me={me} teams={teams} players={players} />}
           {st.gameType === "blind" && <SoundPicker R={R} pid={pid} me={me} teamMode={teamMode} myTeam={myTeam} players={players} teams={teams} />}
         </PlayerLobby>
       )}
@@ -108,6 +109,27 @@ function PlayerLobby({ players, title, myTeam, isBlind, children }) {
       </div>
       {isBlind && <p className="muted small">Pendant le blind test, tu buzzes avec un gros bouton puis tu réponds à voix haute.</p>}
       {children}
+    </div>
+  );
+}
+
+/** Choix de l'équipe dans le salon (le maître du jeu peut aussi déplacer les joueurs) */
+function TeamPicker({ R, pid, me, teams, players }) {
+  const db = getDB();
+  const ids = Object.keys(teams || {}).sort();
+  const count = (tid) => Object.values(players || {}).filter((p) => p.team === tid).length;
+  return (
+    <div className="team-picker">
+      <h3>{me.team ? "Ton équipe" : "Choisis ton équipe"}</h3>
+      <div className="team-picker-grid">
+        {ids.map((tid) => (
+          <button key={tid} className={"team-pick" + (me.team === tid ? " active" : "")} style={{ "--team": teamColor(tid) }}
+            onClick={() => db.update(R, { [`players/${pid}/team`]: tid })}>
+            <span className="team-pick-name">{teams[tid].name}</span>
+            <span className="team-pick-count">{count(tid)} joueur{count(tid) > 1 ? "s" : ""}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -204,6 +226,12 @@ function PlayerBlind({ st, R, pid, myTeam }) {
     <div className="p-blind">
       <div className="q-cat">Manche {q.round} · {q.roundName}</div>
       <h2 className="p-qtext">{q.prompt}</h2>
+      {q.words > 0 && !st.revealed && (
+        <div className="lyric-blanks small">
+          <div className="blanks">{Array.from({ length: q.words }, (_, i) => <span key={i} />)}</div>
+          <small>{q.words} mot{q.words > 1 ? "s" : ""} à trouver</small>
+        </div>
+      )}
       <button
         className={"buzzer" + (pos === 0 ? " first" : pos > 0 || pending ? " queued" : "") + (result?.ok ? " won" : "") + (locked ? " locked" : "") + (pressed ? " pressed" : "")}
         disabled={!canBuzz} onPointerDown={press} aria-label="Buzzer"

@@ -140,3 +140,18 @@
 .sound-btn.active { border-color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); box-shadow: 0 0 0 2px var(--c), 0 0 18px color-mix(in srgb, var(--c) 45%, transparent); }
 .sound-btn.taken { opacity: 0.4; }
 .sound-wait { margin-top: 10px; }
+
+/* ====== Choix de l'équipe ====== */
+.team-picker { width: 100%; margin-top: 8px; }
+.team-picker h3 { color: var(--gold-2); font-size: 18px; margin-bottom: 10px; }
+.team-picker-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.team-pick {
+  font: inherit; cursor: pointer; color: var(--text); display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 12px 8px; border-radius: 12px; background: var(--panel); border: 1px solid rgba(255,220,180,0.14);
+  border-top: 4px solid var(--team); transition: transform .1s, background .15s;
+}
+.team-pick:active { transform: scale(0.96); }
+.team-pick-name { font-family: var(--font-title); font-weight: 700; color: var(--team); font-size: 15px; overflow-wrap: anywhere; }
+.team-pick-count { font-size: 12px; color: var(--muted); }
+.team-pick.active { background: color-mix(in srgb, var(--team) 18%, transparent); box-shadow: 0 0 0 2px var(--team); }
+.team-pick.active .team-pick-name::before { content: "✓ "; }

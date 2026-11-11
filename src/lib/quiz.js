@@ -24,6 +24,7 @@ export const DEFAULT_SETTINGS = {
   // Blind test
   blindLockout: true,   // un joueur refusé ne peut plus buzzer sur ce morceau
   blindShuffle: true,   // mélange les morceaux à l'intérieur de chaque manche
+  blindCheck: "auto",   // réponse au buzzer : "auto" (le jeu valide), "assist" (le jeu teste, le MJ confirme), "manual"
 };
 
 export const TEAM_COLORS = ["#e5484d", "#e2b864", "#46a771", "#7fb4ff", "#c89bff", "#ff9f5a"];
@@ -81,6 +82,8 @@ export function buildBlindDeck(cfg) {
       deck.push({
         type: "blind", round: ri + 1, kind: meta.kind, roundName: round.name || meta.name, prompt: meta.prompt,
         link: t.link.trim(), start, end, answerText: blindAnswerText(meta.kind, t),
+        answer: t.answer.trim(), answer2: (t.answer2 || "").trim(),
+        words: meta.kind === "lyrics" ? countWords(t.answer.split("|")[0]) : null,
       });
     }
   });
@@ -263,4 +266,64 @@ export function parseQuickAdd(text) {
     out.push(q);
   }
   return out;
+}
+
+
+/* ---------- Vérification des réponses du blind test (saisies par le maître du jeu) ---------- */
+
+/** Nombre de mots affiché aux joueurs (« m'envole » compte pour un mot) */
+export function countWords(text) {
+  return String(text || "").trim().split(/\s+/).filter(Boolean).length;
+}
+
+function tokens(text) {
+  return String(text ?? "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/œ/g, "oe").replace(/æ/g, "ae")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim().split(" ").filter(Boolean);
+}
+
+/** Fautes tolérées par mot : 2 pour les mots de 6 lettres et plus, 1 pour les mots de 2 à 5 lettres, 0 pour une lettre ou un nombre */
+function tolerance(word) {
+  if (/^\d+$/.test(word) || word.length <= 1) return 0;
+  return word.length <= 5 ? 1 : 2;
+}
+const close = (a, b) => a === b || (!/^\d+$/.test(b) && levenshtein(a, b) <= tolerance(a.length > b.length ? a : b));
+
+/**
+ * Compare la phrase proposée à la phrase attendue, mot par mot et dans l'ordre,
+ * avec une marge de fautes par mot. Tous les mots attendus doivent y être, sans mot en trop.
+ */
+export function matchWords(given, expected) {
+  const G = tokens(given), E = tokens(expected);
+  if (!E.length || !G.length) return false;
+  // Alignement des mots (comme une distance d'édition, mais au niveau des mots)
+  const dp = Array.from({ length: G.length + 1 }, (_, i) => [i, ...Array(E.length).fill(0)]);
+  for (let j = 1; j <= E.length; j++) dp[0][j] = j;
+  for (let i = 1; i <= G.length; i++)
+    for (let j = 1; j <= E.length; j++)
+      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + (close(G[i - 1], E[j - 1]) ? 0 : 1));
+  if (dp[G.length][E.length] === 0) return true;
+  // Rattrapage des espaces mal placés (« jai » pour « j'ai », « starwars » pour « star wars ») :
+  // seulement si le nombre de mots diffère, avec au plus 2 fautes au total
+  if (G.length === E.length) return false;
+  return levenshtein(G.join(""), E.join("")) <= Math.min(2, E.reduce((n, w) => n + tolerance(w), 0));
+}
+
+/** Plusieurs réponses acceptées, séparées par | */
+export const matchAny = (given, expected) => String(expected || "").split("|").some((alt) => alt.trim() && matchWords(given, alt));
+
+/**
+ * Vérifie la réponse saisie pour un morceau du blind test.
+ * Manche « artiste & titre » : les deux doivent être bons (si un titre est renseigné).
+ */
+export function checkBlind(q, a, b) {
+  if (q.kind === "artist") {
+    const artist = matchAny(a, q.answer);
+    const title = q.answer2 ? matchAny(b, q.answer2) : true;
+    return { ok: artist && title, parts: q.answer2 ? [{ label: "Artiste", ok: artist }, { label: "Titre", ok: title }] : null };
+  }
+  return { ok: matchAny(a, q.answer), parts: null };
 }

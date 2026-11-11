@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getDB, useDb } from "../lib/db.js";
 import { LS, BASE, rid, roomKeyFor, ranking } from "../lib/utils.js";
-import { normalizeConfig, buildDeck, buildBlindDeck, answerText, checkAnswer, toArr, TEAM_COLORS } from "../lib/quiz.js";
+import { normalizeConfig, buildDeck, buildBlindDeck, answerText, checkAnswer, checkBlind, countWords, toArr, TEAM_COLORS } from "../lib/quiz.js";
 import { TrackPlayer } from "../lib/media.js";
 import { SOUNDS, soundById, playSound, unlockSounds, firstFreeSound } from "../lib/sounds.js";
 import MusicStage from "../components/MusicStage.jsx";
@@ -145,7 +145,10 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
     const cfg = await loadConfig();
     const deck = deckFor(cfg, type);
     const s = cfg.settings;
-    const upd = { state: { ...stateFromSettings(s, deck, type), gameId: stRef.current?.gameId || rid() }, teams: teamsFromSettings(s) };
+    const teamsNow = teamsFromSettings(s);
+    const old = (await db.get(`${R}/teams`)) || {};
+    if (teamsNow) for (const [tid, t] of Object.entries(teamsNow)) if (old[tid]?.sound) t.sound = old[tid].sound;
+    const upd = { state: { ...stateFromSettings(s, deck, type), gameId: stRef.current?.gameId || rid() }, teams: teamsNow };
     for (const [pid, p] of Object.entries((await db.get(`${R}/players`)) || {})) {
       const n = parseInt(String(p.team || "").slice(1), 10);
       if (p.team && (!s.teams || !n || n > s.teamCount)) upd[`players/${pid}/team`] = null;
@@ -155,6 +158,20 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
   }
 
   // ---------- Équipes ----------
+  async function setTeamSettings(patch) {
+    await db.update(`q/${adminKey}/config/settings`, patch);
+    await refreshDeck(stRef.current?.gameType || "quiz");
+  }
+  async function renameTeam(tid, name) {
+    const clean = name.trim().slice(0, 24);
+    if (!clean || clean === teams?.[tid]?.name) return;
+    const i = parseInt(tid.slice(1), 10) - 1;
+    const cfg = await loadConfig();
+    const names = [...cfg.settings.teamNames];
+    names[i] = clean;
+    await db.update(R, { [`teams/${tid}/name`]: clean });
+    await db.update(`q/${adminKey}/config/settings`, { teamNames: names });
+  }
   const teamIds = Object.keys(teams || {}).sort();
   function smallestTeam(pl) {
     const counts = Object.fromEntries(teamIds.map((t) => [t, 0]));
@@ -224,7 +241,7 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
     closing.current = false;
     const base = { ...stRef.current, qIndex: i, revealed: null, queue: null, phase: null, locked: null, endsAt: null };
     if (q.type === "blind") {
-      const question = { type: "blind", round: q.round, roundName: q.roundName, prompt: q.prompt };
+      const question = { type: "blind", round: q.round, roundName: q.roundName, prompt: q.prompt, kind: q.kind || null, words: q.words || null };
       if (!skipIntro && (!prev || prev.round !== q.round)) {
         await db.set(`${R}/state`, { ...base, status: "intro", question });
         return;
@@ -499,6 +516,8 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
             joinUrl={joinUrl} password={current?.settings?.showPassword ? gamePassword : null}
             players={players} teams={st.teams ? teams : null} teamIds={teamIds} total={st.total} unit={unit} units={units}
             gameType={gameType} onType={(t) => refreshDeck(t)} onKick={kick} onCycle={cycleTeam} onRandom={randomTeams}
+            teamCount={current?.settings?.teamCount || 2} onTeamMode={(on) => setTeamSettings({ teams: on })}
+            onTeamCount={(n) => setTeamSettings({ teamCount: n })} onRename={renameTeam}
           />
         )}
         {st.status === "intro" && <RoundIntro q={st.question} />}
@@ -532,10 +551,17 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
           </>
         )}
         {inQuestion && isBlind && st.status === "question" && queue.length > 0 && (
-          <>
-            <button className="btn btn-ok btn-big" onClick={validateBuzz}>✓ Bonne réponse <kbd>V</kbd></button>
-            <button className="btn btn-danger btn-big" onClick={refuseBuzz}>✗ Mauvaise réponse <kbd>X</kbd></button>
-          </>
+          (current?.settings?.blindCheck || "auto") === "manual" || !deckQ?.answer ? (
+            <>
+              <button className="btn btn-ok btn-big" onClick={validateBuzz}>✓ Bonne réponse <kbd>V</kbd></button>
+              <button className="btn btn-danger btn-big" onClick={refuseBuzz}>✗ Mauvaise réponse <kbd>X</kbd></button>
+            </>
+          ) : (
+            <AnswerEntry
+              key={queue[0].pid + ":" + queue[0].n} q={deckQ} who={queue[0].name}
+              mode={current.settings.blindCheck || "auto"} onValidate={validateBuzz} onRefuse={refuseBuzz}
+            />
+          )
         )}
         {inQuestion && isBlind && !(st.status === "question" && queue.length > 0) && (
           <>
@@ -574,7 +600,7 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
   );
 }
 
-function Lobby({ joinUrl, password, players, teams, teamIds, total, unit, units, gameType, onType, onKick, onCycle, onRandom }) {
+function Lobby({ joinUrl, password, players, teams, teamIds, total, unit, units, gameType, onType, onKick, onCycle, onRandom, teamCount, onTeamMode, onTeamCount, onRename }) {
   const list = Object.entries(players || {}).sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0));
   const qr = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=8&data=${encodeURIComponent(joinUrl)}`;
   const soundIcon = (id) => {
@@ -608,6 +634,19 @@ function Lobby({ joinUrl, password, players, teams, teamIds, total, unit, units,
         {gameType === "blind" && <div className="blind-note muted">♫ La musique est jouée par cet écran : monte le son !<br />Chacun choisit son son de buzzer sur son téléphone.</div>}
       </div>
       <div className="lobby-players">
+        <div className="mode-bar">
+          <div className="game-switch">
+            <button className={!teams ? "active" : ""} onClick={() => teams && onTeamMode(false)}>Solo</button>
+            <button className={teams ? "active" : ""} onClick={() => !teams && onTeamMode(true)}>Équipes</button>
+          </div>
+          {teams && (
+            <label className="team-count-pick">
+              <select value={teamCount} onChange={(e) => onTeamCount(Number(e.target.value))}>
+                {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} équipes</option>)}
+              </select>
+            </label>
+          )}
+        </div>
         {!teams ? (
           <>
             <h2>Joueurs</h2>
@@ -620,11 +659,18 @@ function Lobby({ joinUrl, password, players, teams, teamIds, total, unit, units,
               <h2>Équipes</h2>
               <button className="btn btn-ghost btn-sm" disabled={!list.length} onClick={onRandom}>⤨ Répartir au hasard</button>
             </div>
-            <p className="muted small">Clique sur un joueur pour le changer d'équipe. Les joueurs sans équipe seront répartis au lancement.</p>
+            <p className="muted small">Les joueurs choisissent leur équipe sur leur téléphone, ou tu cliques sur un joueur pour le déplacer. Clique sur un nom d'équipe pour le modifier. Les joueurs sans équipe seront répartis au lancement.</p>
             <div className="teams-grid">
               {teamIds.map((tid) => (
                 <div key={tid} className="team-col" style={{ "--team": teamColor(tid) }}>
-                  <h3>{showSounds && soundIcon(teams[tid]?.sound)} {teams[tid]?.name}</h3>
+                  <h3>
+                    {showSounds && soundIcon(teams[tid]?.sound)}
+                    <input
+                      key={teams[tid]?.name} className="team-title" defaultValue={teams[tid]?.name} maxLength={24}
+                      onBlur={(e) => onRename(tid, e.target.value)} onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+                    />
+                  </h3>
+                  {showSounds && !teams[tid]?.sound && <div className="muted small">Son : au choix de l'équipe</div>}
                   <div className="chips">{list.filter(([, p]) => p.team === tid).map(chip)}</div>
                 </div>
               ))}
@@ -719,6 +765,7 @@ function BlindView({ st, deckQ, found, queue, audio, teams, players, onToggle })
       <div className="qview-main">
         <div className="q-cat">Manche {q.round} · {q.roundName}</div>
         <h1 className="q-text">{q.prompt}</h1>
+        {q.words > 0 && !st.revealed && <LyricBlanks n={q.words} />}
         <MusicStage
           playing={audio.playing} round={q.round} queue={queue} onToggle={onToggle}
           colorOf={(b) => (b.team ? teamColor(b.team) : soundById(players?.[b.pid]?.sound)?.color || "#f7dd9e")}
@@ -783,5 +830,91 @@ function ThanksEnd({ players }) {
       <p className="muted">Partie terminée avec {list.length} participant{list.length > 1 ? "s" : ""}</p>
       <div className="chips">{list.map((p) => <div key={p.name} className="chip">{p.name}</div>)}</div>
     </div>
+  );
+}
+
+/** Les cases vides : nombre de mots à trouver */
+export function LyricBlanks({ n }) {
+  return (
+    <div className="lyric-blanks">
+      <div className="blanks">{Array.from({ length: n }, (_, i) => <span key={i} />)}</div>
+      <small>{n} mot{n > 1 ? "s" : ""} à trouver</small>
+    </div>
+  );
+}
+
+/**
+ * Saisie, par le maître du jeu, de la réponse dite à voix haute par le joueur qui a buzzé.
+ *  - mode "auto"   : le jeu vérifie et valide (ou refuse) tout seul
+ *  - mode "assist" : le jeu vérifie, le maître du jeu confirme
+ */
+function AnswerEntry({ q, who, mode, onValidate, onRefuse }) {
+  const [a, setA] = useState("");
+  const [b, setB] = useState("");
+  const [verdict, setVerdict] = useState(null);
+  const [done, setDone] = useState(false);
+  const firstRef = useRef(null);
+  const isArtist = q.kind === "artist" && !!q.answer2;
+  const label = q.kind === "lyrics" ? "Paroles proposées" : q.kind === "artist" ? "Artiste" : "Réponse proposée";
+  const expectedWords = q.kind === "lyrics" ? q.words : null;
+  const typedWords = countWords(a);
+
+  useEffect(() => { firstRef.current?.focus(); }, []);
+
+  function check(e) {
+    e?.preventDefault();
+    if (done || !a.trim()) return;
+    const v = checkBlind(q, a, b);
+    setVerdict(v);
+    if (mode === "auto") {
+      setDone(true);
+      setTimeout(() => (v.ok ? onValidate() : onRefuse()), 1300);
+    }
+  }
+  const decide = (ok) => { setDone(true); ok ? onValidate() : onRefuse(); };
+
+  return (
+    <form className={"answer-entry" + (verdict ? (verdict.ok ? " is-ok" : " is-ko") : "")} onSubmit={check}>
+      <div className="ae-who">Réponse de <strong>{who}</strong></div>
+      <div className="ae-fields">
+        <label className="ae-field">
+          <span>{label}{expectedWords ? ` · ${typedWords}/${expectedWords} mots` : ""}</span>
+          <input ref={firstRef} value={a} disabled={done} autoComplete="off" spellCheck={false}
+            onChange={(e) => { setA(e.target.value); setVerdict(null); }} placeholder={q.kind === "lyrics" ? "Tape les mots dits par le joueur…" : "Tape ce que dit le joueur…"} />
+        </label>
+        {isArtist && (
+          <label className="ae-field">
+            <span>Titre</span>
+            <input value={b} disabled={done} autoComplete="off" spellCheck={false}
+              onChange={(e) => { setB(e.target.value); setVerdict(null); }} placeholder="Titre proposé…" />
+          </label>
+        )}
+      </div>
+      <div className="ae-actions">
+        {!verdict && (
+          <button className="btn btn-gold btn-big" disabled={!a.trim()}>
+            {mode === "auto" ? "Valider la réponse" : "Tester la réponse"} <kbd>Entrée</kbd>
+          </button>
+        )}
+        {verdict && (
+          <div className={"ae-verdict " + (verdict.ok ? "ok" : "ko")}>
+            {verdict.ok ? "✓ Bonne réponse !" : "✗ Mauvaise réponse"}
+          </div>
+        )}
+        {mode === "assist" && verdict && !done && (
+          <>
+            <button type="button" className="btn btn-ok btn-big" onClick={() => decide(true)}>✓ Valider</button>
+            <button type="button" className="btn btn-danger btn-big" onClick={() => decide(false)}>✗ Refuser</button>
+          </>
+        )}
+      </div>
+      {!done && (
+        <div className="ae-override">
+          Décider soi-même :
+          <button type="button" onClick={() => decide(true)}>✓ accepter</button>
+          <button type="button" onClick={() => decide(false)}>✗ refuser</button>
+        </div>
+      )}
+    </form>
   );
 }

@@ -174,7 +174,7 @@ function ConfigEditor({ admin, onChangeKey }) {
                 </label>
               ))}
             </div>
-            <p className="muted small">La répartition des joueurs se fait sur l'écran de jeu, dans le salon d'attente.</p>
+            <p className="muted small">Ce sont les réglages par défaut : tu peux aussi passer en solo ou en équipes, changer le nombre d'équipes et leurs noms directement dans le salon d'attente de l'écran de jeu.</p>
           </>
         )}
       </section>
@@ -382,6 +382,18 @@ function BlindSection({ cfg, change, setS }) {
           <Check label="Un joueur refusé ne peut plus buzzer sur le même morceau" v={cfg.settings.blindLockout} on={(v) => setS("blindLockout", v)} />
           <Check label="Mélanger les morceaux dans chaque manche" v={cfg.settings.blindShuffle} on={(v) => setS("blindShuffle", v)} />
         </div>
+        <label className="field check-mode">
+          <span>Quand un joueur buzze et répond à voix haute</span>
+          <select value={cfg.settings.blindCheck} onChange={(e) => setS("blindCheck", e.target.value)}>
+            <option value="auto">Le maître du jeu tape la réponse, le jeu valide tout seul</option>
+            <option value="assist">Le maître du jeu tape la réponse, le jeu la teste, le maître du jeu confirme</option>
+            <option value="manual">Le maître du jeu valide lui-même (boutons Bonne / Mauvaise réponse)</option>
+          </select>
+        </label>
+        <p className="muted small">
+          Le jeu tolère les fautes de frappe : 1 lettre par mot jusqu'à 5 lettres, 2 au-delà. Pour les paroles, il faut tous les mots, dans l'ordre.
+          Plusieurs réponses possibles ? Sépare-les par <code>|</code> (ex : <code>Star Wars | La Guerre des étoiles</code>).
+        </p>
         <p className="muted">{total} morceau{total > 1 ? "x" : ""} valide{total > 1 ? "s" : ""} dans les manches cochées.</p>
       </div>
       {cfg.blind.map((round, ri) => (
@@ -452,7 +464,10 @@ function BlindRound({ index, round, rounds, meta, edit, onMove, playing, onPlay,
                   <label className="field"><span>{endLabel}</span><input placeholder={meta.kind === "lyrics" ? "1:05" : "0:50"} value={t.end} onChange={set("end")} /></label>
                 </div>
                 <div className="track-answers">
-                  <label className="field"><span>{meta.a1}</span><input value={t.answer} onChange={set("answer")} /></label>
+                  <label className="field">
+                    <span>{meta.a1}{meta.kind === "lyrics" && t.answer.trim() ? ` · ${t.answer.split("|")[0].trim().split(/\s+/).length} mots` : ""}</span>
+                    <input value={t.answer} onChange={set("answer")} placeholder={meta.kind === "lyrics" ? "Les mots exacts qui suivent la coupure" : "Plusieurs réponses : séparer par |"} />
+                  </label>
                   <label className="field"><span>{meta.a2}</span><input value={t.answer2} onChange={set("answer2")} /></label>
                 </div>
               </div>

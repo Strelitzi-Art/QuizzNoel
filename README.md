@@ -75,6 +75,16 @@ Si le lien contient déjà un temps (`?t=90`), il est repris comme début. Pour 
 Seul le son est joué, la vidéo reste cachée pour ne pas dévoiler la réponse. Certaines vidéos, souvent les clips officiels, interdisent la lecture hors de YouTube : le test te le signale, prends alors une version « lyrics » ou « audio ».
 Un lien vers un fichier audio (`https://…/chanson.mp3`) ou un fichier placé dans `public/audio/` fonctionne aussi.
 
+**Vérification des réponses :** quand un joueur buzze et répond à voix haute, le maître du jeu tape ce qu'il a dit (pour la manche 1, deux champs : artiste et titre). Le maître du jeu n'a donc pas besoin de connaître les réponses par cœur.
+Trois modes, à choisir dans la config :
+- **automatique** (par défaut) : le jeu valide ou refuse tout seul ;
+- **le jeu teste, le maître du jeu confirme** : le jeu donne son avis, puis tu cliques sur Valider ou Refuser ;
+- **manuel** : uniquement les boutons Bonne / Mauvaise réponse.
+
+Les fautes de frappe sont tolérées : 1 lettre par mot jusqu'à 5 lettres, 2 au-delà (la marge se calcule sur le plus long des deux mots). Un espace oublié ou en trop est aussi toléré, comme « starwars » pour « Star Wars » ou « jai » pour « j'ai ».
+Pour les paroles, il faut tous les mots, dans l'ordre, sans mot en trop. Le nombre de mots à trouver s'affiche sous forme de cases sur l'écran et sur les téléphones.
+Plusieurs réponses acceptées : sépare-les par `|` (`Star Wars | La Guerre des étoiles`). Dans tous les modes, les petits liens « accepter / refuser » permettent au maître du jeu de trancher lui-même.
+
 **Sons de buzzer :** dans le salon d'attente, chaque joueur (ou chaque équipe) choisit son son sur son téléphone. Il y en a 14, tous différents.
 Ceux qui n'ont rien choisi reçoivent un son libre au lancement. Le son retentit sur l'écran du maître du jeu à chaque buzz, avec une explosion de couleur et le nom du joueur.
 
