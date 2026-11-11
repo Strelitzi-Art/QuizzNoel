@@ -1,0 +1,12 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "q": {
+      "$key": {
+        ".read": "$key.length === 64",
+        ".write": "$key.length === 64"
+      }
+    }
+  }
+}
