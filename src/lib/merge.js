@@ -52,6 +52,7 @@ export function mergeConfigs(base, mine, theirs) {
       ...mergeFields(b, m, t, ["questions"]),
       questions: mergeList(b.questions, m.questions, t.questions),
     })),
+    sounds: mergeList(base.sounds, mine.sounds, theirs.sounds),
     blind: mine.blind.map((m, i) => {
       const b = base.blind[i], t = theirs.blind[i];
       return { ...mergeFields(b, m, t, ["tracks"]), tracks: mergeList(b.tracks, m.tracks, t.tracks) };

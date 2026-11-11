@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { getDB, useDb } from "../lib/db.js";
 import { SESSION, go, ranking } from "../lib/utils.js";
 import { toArr, TEAM_COLORS } from "../lib/quiz.js";
-import { SOUNDS, playSound, unlockSounds } from "../lib/sounds.js";
+import { playSound, unlockSounds, setSoundCatalog, getSoundCatalog } from "../lib/sounds.js";
 import Timer, { useRemaining } from "../components/Timer.jsx";
 import Podium from "../components/Podium.jsx";
 import OptionalImage, { IMAGES } from "../components/OptionalImage.jsx";
@@ -29,6 +29,8 @@ function PlayerGame({ session }) {
   const me = useDb(`${R}/players/${pid}`);
   const players = useDb(`${R}/players`);
   const teams = useDb(`${R}/teams`);
+  const roomSounds = useDb(`${R}/sounds`);
+  if (roomSounds !== undefined) setSoundCatalog(toArr(roomSounds));
 
   if (st === undefined || me === undefined) return <div className="center-page"><div className="loading">Connexion…</div></div>;
 
@@ -142,6 +144,7 @@ function SoundPicker({ R, pid, me, teamMode, myTeam, players, teams }) {
   const taken = new Map();
   if (teamMode) for (const [tid, t] of Object.entries(teams || {})) { if (tid !== myTeam.id && t.sound) taken.set(t.sound, t.name); }
   else for (const [id, p] of Object.entries(players || {})) { if (id !== pid && p.sound) taken.set(p.sound, p.name); }
+  const SOUNDS = getSoundCatalog();
   const allTaken = SOUNDS.every((x) => taken.has(x.id) || x.id === current);
 
   function pick(id) {

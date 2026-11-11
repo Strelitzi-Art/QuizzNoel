@@ -48,11 +48,13 @@ function loadYouTubeApi() {
   return ytReady;
 }
 
-let ytPlayerPromise = null;
-let ytErrorHandler = null;
-function getYouTubePlayer() {
-  if (ytPlayerPromise) return ytPlayerPromise;
-  ytPlayerPromise = loadYouTubeApi().then((YT) => new Promise((resolve) => {
+// Un lecteur YouTube caché par "emplacement" : "main" pour la musique, un par son de buzzer personnalisé.
+const ytSlots = new Map();     // emplacement -> Promise<YT.Player>
+const ytErrors = new Map();    // emplacement -> fonction d'erreur
+const ytStates = new Map();    // emplacement -> fonction appelée à chaque changement d'état
+function createYouTubePlayer(slot) {
+  if (ytSlots.has(slot)) return ytSlots.get(slot);
+  const promise = loadYouTubeApi().then((YT) => new Promise((resolve) => {
     // Lecteur hors de la vue : on n'entend que le son, la vidéo ne révèle pas la réponse
     const holder = document.createElement("div");
     holder.className = "yt-holder";
@@ -65,12 +67,78 @@ function getYouTubePlayer() {
       playerVars: { autoplay: 0, controls: 0, disablekb: 1, fs: 0, rel: 0, playsinline: 1, iv_load_policy: 3 },
       events: {
         onReady: () => resolve(p),
-        onError: (e) => ytErrorHandler?.(YT_ERRORS[e.data] || `Erreur YouTube (${e.data})`),
+        onError: (e) => ytErrors.get(slot)?.(YT_ERRORS[e.data] || `Erreur YouTube (${e.data})`),
+        onStateChange: (e) => ytStates.get(slot)?.(e.data),
       },
     });
   }));
-  ytPlayerPromise.catch(() => { ytPlayerPromise = null; });
-  return ytPlayerPromise;
+  promise.catch(() => ytSlots.delete(slot));
+  ytSlots.set(slot, promise);
+  return promise;
+}
+const getYouTubePlayer = () => createYouTubePlayer("main");
+let ytErrorHandler = null;
+ytErrors.set("main", (msg) => ytErrorHandler?.(msg));
+
+/* ---------------- Sons de buzzer personnalisés (extraits YouTube) ---------------- */
+
+/**
+ * Banque de sons : chaque son a son propre lecteur, préchargé (en muet) au bon endroit,
+ * pour se déclencher sans délai au moment du buzz.
+ */
+export class SoundBank {
+  constructor() { this.items = new Map(); }
+
+  /** Précharge une liste de sons { id, link, start, end } */
+  prime(list) {
+    return Promise.all((list || []).map((snd) => this.load(snd)));
+  }
+
+  load(snd) {
+    const id = youtubeId(snd.link);
+    if (!id) return Promise.resolve(null);
+    const key = snd.id + "|" + id + "|" + snd.start;
+    const cur = this.items.get(snd.id);
+    if (cur && cur.key === key) return cur.ready;
+    const slot = "snd-" + snd.id;
+    const item = { key, start: Number(snd.start) || 0, end: Number(snd.end) || (Number(snd.start) || 0) + 3, timer: null, primed: false };
+    item.ready = createYouTubePlayer(slot).then((p) => new Promise((resolve) => {
+      item.player = p;
+      // On lance la vidéo en muet pour qu'elle se charge, puis on la remet au début de l'extrait
+      ytStates.set(slot, (state) => {
+        if (state === 1 && !item.primed) {
+          item.primed = true;
+          p.pauseVideo();
+          p.seekTo(item.start, true);
+          p.unMute();
+          resolve(p);
+        }
+      });
+      p.mute();
+      p.loadVideoById({ videoId: id, startSeconds: item.start });
+      setTimeout(() => resolve(p), 4000); // au pire, on n'attend pas plus
+    }));
+    this.items.set(snd.id, item);
+    return item.ready;
+  }
+
+  /** Joue le son (entre son début et sa fin) */
+  async play(snd) {
+    await this.load(snd);
+    const item = this.items.get(snd.id);
+    const p = item?.player;
+    if (!p) return;
+    clearTimeout(item.timer);
+    p.unMute();
+    p.setVolume?.(100);
+    p.seekTo(item.start, true);
+    p.playVideo();
+    item.timer = setTimeout(() => p.pauseVideo(), Math.max(0.5, item.end - item.start) * 1000);
+  }
+
+  stopAll() {
+    for (const it of this.items.values()) { clearTimeout(it.timer); it.player?.pauseVideo?.(); }
+  }
 }
 
 /* ---------------- Lecteur unifié ---------------- */

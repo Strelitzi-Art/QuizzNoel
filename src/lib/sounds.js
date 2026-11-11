@@ -1,4 +1,7 @@
-// Sons de buzzer, fabriqués directement par le navigateur (Web Audio) : aucun fichier à fournir.
+// Sons de buzzer : 14 sons intégrés, fabriqués par le navigateur (Web Audio),
+// + les sons personnalisés de la config (extraits YouTube).
+import { SoundBank, youtubeId, youtubeStart } from "./media.js";
+import { parseTime } from "./quiz.js";
 
 export const SOUNDS = [
   { id: "cloche", name: "Cloche", icon: "🔔", color: "#f7dd9e" },
@@ -16,7 +19,35 @@ export const SOUNDS = [
   { id: "bulles", name: "Bulles", icon: "🫧", color: "#8ee6ff" },
   { id: "etoiles", name: "Étoiles", icon: "✨", color: "#fff1c4" },
 ];
-export const soundById = (id) => SOUNDS.find((s) => s.id === id) || null;
+const CUSTOM_COLORS = ["#ff7eb6", "#7ee0ff", "#b6ff7e", "#ffb86b", "#d6a6ff", "#ffe36b", "#6bffd0", "#ff8f8f"];
+const MAX_CLIP = 8; // secondes
+
+/** Construit la liste des sons proposés aux joueurs à partir de la config */
+export function buildSoundCatalog(cfg) {
+  const custom = (cfg.sounds || [])
+    .filter((x) => x.name.trim() && youtubeId(x.link))
+    .map((x, i) => {
+      const start = parseTime(x.start) ?? youtubeStart(x.link) ?? 0;
+      let end = parseTime(x.end) ?? start + 3;
+      if (end <= start) end = start + 3;
+      return {
+        id: "c-" + x.id, name: x.name.trim().slice(0, 18), icon: (x.icon || "").trim() || "🎵",
+        color: CUSTOM_COLORS[i % CUSTOM_COLORS.length], link: x.link.trim(), start, end: Math.min(end, start + MAX_CLIP),
+      };
+    });
+  return [...custom, ...(cfg.settings?.builtinSounds === false && custom.length ? [] : SOUNDS)];
+}
+
+let catalog = SOUNDS;
+/** Liste des sons de la partie en cours (envoyée par l'écran de jeu) */
+export function setSoundCatalog(list) { catalog = Array.isArray(list) && list.length ? list : SOUNDS; }
+export const getSoundCatalog = () => catalog;
+export const soundById = (id) => catalog.find((s) => s.id === id) || SOUNDS.find((s) => s.id === id) || null;
+
+let bank = null;
+const getBank = () => (bank ||= new SoundBank());
+/** Précharge les sons personnalisés (écran du maître du jeu) */
+export const primeCustomSounds = (list) => getBank().prime((list || []).filter((x) => x.link));
 
 let ctx = null;
 let out = null;
@@ -128,6 +159,8 @@ const RECIPES = {
 };
 
 export function playSound(id) {
+  const snd = soundById(id);
+  if (snd?.link) return getBank().play(snd);
   const c = ac();
   if (!c) return;
   (RECIPES[id] || RECIPES.cloche)(c);
@@ -136,5 +169,5 @@ export function playSound(id) {
 /** Premier son libre, en évitant ceux déjà pris */
 export function firstFreeSound(taken) {
   const t = new Set(taken);
-  return (SOUNDS.find((s) => !t.has(s.id)) || SOUNDS[Math.floor(Math.random() * SOUNDS.length)]).id;
+  return (catalog.find((s) => !t.has(s.id)) || catalog[Math.floor(Math.random() * catalog.length)]).id;
 }

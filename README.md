@@ -85,8 +85,11 @@ Les fautes de frappe sont tolérées : 1 lettre par mot jusqu'à 5 lettres, 2 au
 Pour les paroles, il faut tous les mots, dans l'ordre, sans mot en trop. Le nombre de mots à trouver s'affiche sous forme de cases sur l'écran et sur les téléphones.
 Plusieurs réponses acceptées : sépare-les par `|` (`Star Wars | La Guerre des étoiles`). Dans tous les modes, les petits liens « accepter / refuser » permettent au maître du jeu de trancher lui-même.
 
-**Sons de buzzer :** dans le salon d'attente, chaque joueur (ou chaque équipe) choisit son son sur son téléphone. Il y en a 14, tous différents.
+**Sons de buzzer :** dans le salon d'attente, chaque joueur (ou chaque équipe) choisit son son sur son téléphone. Chaque son ne peut être pris qu'une fois.
 Ceux qui n'ont rien choisi reçoivent un son libre au lancement. Le son retentit sur l'écran du maître du jeu à chaque buzz, avec une explosion de couleur et le nom du joueur.
+Il y a 14 sons intégrés, et tu peux créer les tiens dans la config (section **Sons de buzzer**) : un nom, un emoji, un lien YouTube, puis le début et la fin du passage (3 secondes environ, 8 au maximum).
+**▶ Tester** permet de l'écouter. Une case permet de ne proposer que tes sons personnalisés.
+Sur l'écran de jeu, chaque son personnalisé est préchargé en sourdine, pour partir sans délai au moment du buzz.
 
 **Déroulé :** pendant l'extrait, un vinyle tourne sur l'écran principal (clique dessus pour mettre en pause ou relancer) et chaque joueur a un gros bouton **BUZZ**.
 Au premier buzz, la musique se met en pause. Le joueur répond à voix haute et le maître du jeu clique sur **✓ Bonne réponse** (touche `V`) ou **✗ Mauvaise réponse** (touche `X`).

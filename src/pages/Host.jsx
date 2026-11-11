@@ -3,7 +3,7 @@ import { getDB, useDb } from "../lib/db.js";
 import { LS, BASE, rid, roomKeyFor, ranking } from "../lib/utils.js";
 import { normalizeConfig, buildDeck, buildBlindDeck, answerText, checkAnswer, checkBlind, countWords, toArr, TEAM_COLORS } from "../lib/quiz.js";
 import { TrackPlayer } from "../lib/media.js";
-import { SOUNDS, soundById, playSound, unlockSounds, firstFreeSound } from "../lib/sounds.js";
+import { soundById, playSound, unlockSounds, firstFreeSound, buildSoundCatalog, setSoundCatalog, getSoundCatalog, primeCustomSounds } from "../lib/sounds.js";
 import MusicStage from "../components/MusicStage.jsx";
 import AdminGate from "../components/AdminGate.jsx";
 import Timer, { useRemaining } from "../components/Timer.jsx";
@@ -46,6 +46,8 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
   const players = useDb(`${R}/players`);
   const teams = useDb(`${R}/teams`);
   const current = useDb(`q/${adminKey}/current`);
+  const roomSounds = useDb(`${R}/sounds`);
+  if (roomSounds !== undefined) setSoundCatalog(toArr(roomSounds)); // sons de la partie (intégrés + personnalisés)
   const qi = st?.qIndex ?? -1;
   const isBlind = st?.question?.type === "blind";
   const inQuestion = st?.status === "question" || st?.status === "closed";
@@ -90,6 +92,9 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
   const resumeAudio = () => media.resume();
   const stopAudio = () => media.stop();
   const playFull = () => media.playFull();
+
+  // Préchargement des sons de buzzer personnalisés (YouTube)
+  useEffect(() => { if (roomSounds) primeCustomSounds(toArr(roomSounds)); }, [JSON.stringify(roomSounds || null)]);
 
   // ---------- Initialisation de la salle ----------
   useEffect(() => {
@@ -137,7 +142,7 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
     local.current = { qi: -2, found: {}, results: {}, processed: new Set(), teamFound: new Set() };
     blind.current = { qi: -2, processed: new Set(), queue: [], locked: {} };
     await db.set(`q/${adminKey}/current`, { roomKey, deck, settings: cfg.settings, gameType: type });
-    await db.set(R, { players: pl, teams: teamsFromSettings(cfg.settings), state: stateFromSettings(cfg.settings, deck, type) });
+    await db.set(R, { players: pl, teams: teamsFromSettings(cfg.settings), state: stateFromSettings(cfg.settings, deck, type), sounds: buildSoundCatalog(cfg) });
   }
 
   // Dans le salon : recharge les questions (ou change de jeu) sans perdre les joueurs
@@ -148,7 +153,7 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
     const teamsNow = teamsFromSettings(s);
     const old = (await db.get(`${R}/teams`)) || {};
     if (teamsNow) for (const [tid, t] of Object.entries(teamsNow)) if (old[tid]?.sound) t.sound = old[tid].sound;
-    const upd = { state: { ...stateFromSettings(s, deck, type), gameId: stRef.current?.gameId || rid() }, teams: teamsNow };
+    const upd = { state: { ...stateFromSettings(s, deck, type), gameId: stRef.current?.gameId || rid() }, teams: teamsNow, sounds: buildSoundCatalog(cfg) };
     for (const [pid, p] of Object.entries((await db.get(`${R}/players`)) || {})) {
       const n = parseInt(String(p.team || "").slice(1), 10);
       if (p.team && (!s.teams || !n || n > s.teamCount)) upd[`players/${pid}/team`] = null;
@@ -263,10 +268,11 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
     if ((stRef.current?.gameType || "quiz") !== "blind") return;
     const teamMode = !!stRef.current?.teams;
     const items = teamMode ? (await db.get(`${R}/teams`)) || {} : (await db.get(`${R}/players`)) || {};
-    const taken = Object.values(items).map((x) => x.sound).filter(Boolean);
+    const valid = new Set(getSoundCatalog().map((x) => x.id));
+    const taken = Object.values(items).map((x) => x.sound).filter((x) => valid.has(x));
     const upd = {};
     for (const [id, x] of Object.entries(items)) {
-      if (x.sound) continue;
+      if (x.sound && valid.has(x.sound)) continue;
       const snd = firstFreeSound(taken);
       taken.push(snd);
       upd[`${teamMode ? "teams" : "players"}/${id}/sound`] = snd;

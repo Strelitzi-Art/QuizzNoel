@@ -24,7 +24,8 @@ export const DEFAULT_SETTINGS = {
   // Blind test
   blindLockout: true,   // un joueur refusé ne peut plus buzzer sur ce morceau
   blindShuffle: true,   // mélange les morceaux à l'intérieur de chaque manche
-  blindCheck: "auto",   // réponse au buzzer : "auto" (le jeu valide), "assist" (le jeu teste, le MJ confirme), "manual"
+  blindCheck: "auto",
+  builtinSounds: true,  // proposer aussi les 14 sons intégrés en plus des sons personnalisés   // réponse au buzzer : "auto" (le jeu valide), "assist" (le jeu teste, le MJ confirme), "manual"
 };
 
 export const TEAM_COLORS = ["#e5484d", "#e2b864", "#46a771", "#7fb4ff", "#c89bff", "#ff9f5a"];
@@ -133,6 +134,9 @@ export function normalizeConfig(c) {
           image: q.image || "",
         };
       }),
+    })),
+    sounds: toArr(c.sounds).map((x) => ({
+      id: x.id || rid(4), name: x.name || "", icon: x.icon || "", link: x.link || "", start: x.start ?? "", end: x.end ?? "",
     })),
     blind: BLIND_ROUNDS.map((meta, i) => {
       const r = toArr(c.blind)[i] || {};
