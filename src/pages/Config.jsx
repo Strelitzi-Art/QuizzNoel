@@ -4,6 +4,7 @@ import { LS, BASE, adminKeyFor, rid } from "../lib/utils.js";
 import { normalizeConfig, newQuestion, isValidQuestion, parseQuickAdd, toArr, BLIND_ROUNDS, TEAM_COLORS, newTrack, isValidTrack, parseTime } from "../lib/quiz.js";
 import { TrackPlayer, youtubeId, youtubeStart, youtubeThumb } from "../lib/media.js";
 import { mergeConfigs } from "../lib/merge.js";
+import { isSoundLink } from "../lib/sounds.js";
 import AdminGate from "../components/AdminGate.jsx";
 import "../styles/config.css";
 
@@ -588,7 +589,7 @@ function BlindRound({ index, round, rounds, meta, edit, onMove, playing, onPlay,
 function SoundsSection({ cfg, change, setS }) {
   const [playing, setPlaying] = useState(null);
   const [err, setErr] = useState(null);
-  const valid = (x) => x.name.trim() && youtubeId(x.link);
+  const valid = (x) => x.name.trim() && isSoundLink(x.link);
   const nValid = cfg.sounds.filter(valid).length;
   const sig = cfg.settings.hostSignal;
 
@@ -620,8 +621,8 @@ function SoundsSection({ cfg, change, setS }) {
       <>
         <div className="track-file">
           {id && <img className="yt-thumb" src={youtubeThumb(id)} alt="" onError={(e) => (e.currentTarget.style.display = "none")} />}
-          <input placeholder="Lien YouTube" value={x.link} onChange={set("link")} />
-          <button className="btn btn-ghost btn-sm" disabled={!id} onClick={() => test(x, key)}>{playing === key ? "■ Stop" : "▶ Tester"}</button>
+          <input placeholder="Lien YouTube ou fichier MP3 (ex : mario.mp3)" value={x.link} onChange={set("link")} />
+          <button className="btn btn-ghost btn-sm" disabled={!isSoundLink(x.link)} onClick={() => test(x, key)}>{playing === key ? "■ Stop" : "▶ Tester"}</button>
         </div>
         {err?.id === key && <div className="warn test-err">{err.msg}</div>}
         <div className="track-times">
@@ -651,7 +652,9 @@ function SoundsSection({ cfg, change, setS }) {
       </div>
       <p className="muted small sounds-help">
         La liste proposée aux joueurs dans le salon d'attente. Chacun (ou chaque équipe) en choisit un, qui sortira de
-        <strong> son propre téléphone</strong> quand il buzzera. Un nom, un emoji, le lien YouTube et le passage à jouer.
+        <strong> son propre téléphone</strong> quand il buzzera. Un nom, un emoji, le lien et le passage à jouer.
+        Le plus fiable sur téléphone : un <strong>fichier MP3</strong> (mets-le dans <code>public/audio/</code> du site et écris juste son nom,
+        ex : <code>mario.mp3</code>, ou colle un lien direct vers un .mp3). Les liens YouTube marchent aussi, mais certains téléphones les bloquent.
         {" "}{nValid} son{nValid > 1 ? "s" : ""} prêt{nValid > 1 ? "s" : ""}.
       </p>
       {cfg.sounds.length === 0 && <p className="muted small">Aucun son pour l'instant : les téléphones resteront silencieux.</p>}

@@ -683,7 +683,14 @@ function Lobby({ joinUrl, password, players, teams, teamIds, total, unit, units,
         <div className="join-url">{joinUrl.replace(/^https?:\/\//, "")}</div>
         {password && <div className="join-pwd">Mot de passe : <strong>{password}</strong></div>}
         <div className="muted">{total} {total > 1 ? units : unit} prêt{unit === "question" ? "e" : ""}{total > 1 ? "s" : ""}</div>
-        {gameType === "blind" && <div className="blind-note muted">♫ La musique est jouée par cet écran : monte le son !<br />Chacun choisit son son de buzzer, qui sortira de son téléphone.</div>}
+        {gameType === "blind" && (
+          <div className="blind-note muted">
+            ♫ La musique est jouée par cet écran : monte le son !<br />
+            {getSoundCatalog().length
+              ? "Chacun choisit son son de buzzer, qui sortira de son téléphone."
+              : <span className="warn-sounds">⚠ Aucun son de joueur dans la config (onglet Blind test) : les téléphones ne feront pas de bruit.</span>}
+          </div>
+        )}
       </div>
       <div className="lobby-players">
         <div className="mode-bar">

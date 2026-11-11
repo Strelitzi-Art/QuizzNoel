@@ -1,5 +1,9 @@
-Le blind test utilise des liens YouTube : rien à mettre ici.
+Sons de buzzer des joueurs (recommandé) et musiques en fichiers audio.
 
-Ce dossier reste disponible si tu veux utiliser tes propres fichiers audio :
-dépose-les ici et indique leur nom (ex : chanson.mp3) à la place du lien YouTube.
-Attention : le repo GitHub est public, n'importe qui pourrait les télécharger.
+Dépose ici des fichiers .mp3 (ou .m4a, .ogg, .wav), puis, dans la config
+(onglet Blind test > Sons des joueurs), écris juste le nom du fichier, ex : mario.mp3
+
+C'est la méthode la plus fiable pour que le son sorte du téléphone du joueur
+quand il buzze (les liens YouTube peuvent être bloqués par certains téléphones).
+Garde des fichiers courts (quelques secondes) et légers.
+Attention : le repo GitHub est public, n'importe qui peut télécharger ces fichiers.

@@ -185,17 +185,27 @@ export class LoopMusic {
  * à le rejouer au moment du buzz (les navigateurs mobiles bloquent sinon le son).
  */
 export class PhoneSound {
-  constructor() { this.snd = null; this.player = null; this.timer = null; this.key = null; }
+  constructor() { this.snd = null; this.mode = null; this.player = null; this.audio = null; this.timer = null; this.key = null; this.url = null; }
 
   async setSound(snd) {
-    const id = snd ? youtubeId(snd.link) : null;
-    if (!id) { this.snd = null; return; }
-    this.snd = snd;
+    this.snd = snd || null;
+    if (!snd) { this.mode = null; return; }
+    const id = youtubeId(snd.link);
+    if (!id) {
+      // Fichier audio (mp3…) : le plus fiable sur téléphone
+      this.mode = "audio";
+      if (!this.audio) { this.audio = new Audio(); this.audio.preload = "auto"; this.audio.playsInline = true; }
+      const link = String(snd.link || "").trim();
+      const url = /^https?:\/\//i.test(link) ? link : `${BASE}audio/${link.split("/").map(encodeURIComponent).join("/")}`;
+      if (this.url !== url) { this.url = url; this.audio.src = url; this.audio.load(); }
+      return;
+    }
+    this.mode = "yt";
     const p = await createYouTubePlayer("phone");
     this.player = p;
     // L'extrait s'arrête tout seul à sa fin, même si le joueur a touché ▶ directement sur la vidéo
     ytStates.set("phone", (state) => {
-      if (state !== 1 || !this.snd) return;
+      if (state !== 1 || !this.snd || this.mode !== "yt") return;
       const { start, end } = this.snd;
       let t = p.getCurrentTime?.() || start;
       if (t < start - 0.5 || t >= end) { p.seekTo(start, true); t = start; }
@@ -206,15 +216,60 @@ export class PhoneSound {
     if (this.key !== key) { this.key = key; p.cueVideoById({ videoId: id, startSeconds: snd.start }); }
   }
 
-  /** Joue l'extrait : à appeler directement pendant l'appui du joueur */
-  play() {
-    const p = this.player, s = this.snd;
-    if (!p || !s) return false;
-    try { p.unMute(); p.setVolume?.(100); p.seekTo(s.start, true); p.playVideo(); } catch { return false; }
-    return true;
+  /** À appeler pendant un toucher : débloque la lecture du fichier audio pour la suite de la partie */
+  unlock() {
+    if (this.mode !== "audio" || !this.audio) return;
+    const a = this.audio;
+    if (!a.paused) return;
+    this.unlocking = true;
+    a.muted = true;
+    const done = () => { a.muted = false; this.unlocking = false; };
+    a.play().then(() => {
+      // Si une vraie lecture a été demandée entre-temps, on ne l'interrompt pas
+      if (!this.wantPlay) { a.pause(); a.currentTime = this.snd?.start || 0; }
+      done();
+    }).catch(done);
   }
 
-  show(on) { document.querySelector('.yt-holder[data-slot="phone"]')?.classList.toggle("show", !!on); }
+  /**
+   * Joue l'extrait : à appeler pendant un toucher du joueur (relâchement du doigt).
+   * Renvoie une promesse : true si la lecture a vraiment démarré.
+   */
+  play() {
+    const s = this.snd;
+    if (!s) return Promise.resolve(false);
+    clearTimeout(this.timer);
+    if (this.mode === "audio" && this.audio) {
+      const a = this.audio;
+      this.wantPlay = true;
+      a.muted = false;
+      try { a.currentTime = s.start || 0; } catch { /* pas encore chargé */ }
+      this.timer = setTimeout(() => { a.pause(); this.wantPlay = false; }, Math.max(0.3, s.end - s.start) * 1000);
+      return a.play().then(() => true, () => false);
+    }
+    const p = this.player;
+    if (!p) return Promise.resolve(false);
+    try { p.unMute(); p.setVolume?.(100); p.seekTo(s.start, true); p.playVideo(); } catch { return Promise.resolve(false); }
+    // YouTube : on regarde si la vidéo se met bien en lecture dans la seconde et demie
+    return new Promise((resolve) => {
+      const t0 = Date.now();
+      const check = () => {
+        if (p.getPlayerState?.() === 1) return resolve(true);
+        if (Date.now() - t0 > 1500) return resolve(false);
+        setTimeout(check, 100);
+      };
+      check();
+    });
+  }
+
+  /** Le son est-il en train de jouer ? (pour le bouton « Tester mon son ») */
+  isPlaying() {
+    if (this.mode === "audio") return !!this.audio && !this.audio.paused;
+    return this.player?.getPlayerState?.() === 1;
+  }
+
+  /** Le petit lecteur YouTube n'est affiché que pour un son YouTube, dans le salon d'attente */
+  show(on) { document.querySelector('.yt-holder[data-slot="phone"]')?.classList.toggle("show", !!on && this.mode === "yt"); }
 }
 
 /* ---------------- Lecteur unifié ---------------- */

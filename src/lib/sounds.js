@@ -16,9 +16,12 @@ function clip(x) {
 }
 
 /** Liste des sons proposés aux joueurs, à partir de la config */
+/** Lien utilisable pour un son de joueur : YouTube, ou fichier audio (mp3…) en ligne ou dans public/audio/ */
+export const isSoundLink = (link) => !!youtubeId(link) || /\.(mp3|m4a|aac|ogg|oga|opus|wav)(\?|#|$)/i.test(String(link || "").trim());
+
 export function buildSoundCatalog(cfg) {
   return (cfg.sounds || [])
-    .filter((x) => x.name.trim() && youtubeId(x.link))
+    .filter((x) => x.name.trim() && isSoundLink(x.link))
     .map((x, i) => ({
       id: "c-" + x.id, name: x.name.trim().slice(0, 18), icon: (x.icon || "").trim() || "🎵",
       color: COLORS[i % COLORS.length], link: x.link.trim(), ...clip(x),

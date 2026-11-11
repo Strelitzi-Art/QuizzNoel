@@ -274,3 +274,4 @@
 
 /* Confettis du classement final : par-dessus le podium, sans gêner les clics */
 .confetti-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 40; }
+.warn-sounds { color: var(--ko); }

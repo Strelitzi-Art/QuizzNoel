@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getDB, useDb } from "../lib/db.js";
 import { SESSION, go, ranking } from "../lib/utils.js";
 import { toArr, TEAM_COLORS } from "../lib/quiz.js";
@@ -152,7 +152,8 @@ function SoundPicker({ R, pid, me, teamMode, myTeam, players, teams }) {
 
   function pick(id) {
     if (taken.has(id) && !allTaken) return;
-    phoneSound().setSound(soundById(id));
+    const ps = phoneSound();
+    ps.setSound(soundById(id)).then(() => ps.unlock());
     db.update(R, { [teamMode ? `teams/${myTeam.id}/sound` : `players/${pid}/sound`]: id });
   }
 
@@ -163,6 +164,7 @@ function SoundPicker({ R, pid, me, teamMode, myTeam, players, teams }) {
         Il sortira de <strong>ton téléphone</strong> quand tu buzzeras : monte le son !
         {current ? <> Touche <strong>▶</strong> sur le petit lecteur en bas de l'écran pour l'écouter : c'est ce qui autorise ton téléphone à le jouer pendant la partie.</> : " Touche un son pour le choisir."}
       </p>
+      {current && <SoundTester />}
       <div className="sound-grid">
         {SOUNDS.map((x) => {
           const owner = taken.get(x.id);
@@ -201,6 +203,7 @@ function PlayerBlind({ st, R, pid, myTeam, mySound }) {
   const found = useDb(`${R}/found/${qi}`);
   const [sent, setSent] = useState(0);
   const [pressed, setPressed] = useState(false);
+  const pressedAt = useRef(0);
   const queue = toArr(st.queue);
   const pos = queue.findIndex((b) => b.pid === pid);
   const locked = !!st.locked?.[pid];
@@ -211,7 +214,7 @@ function PlayerBlind({ st, R, pid, myTeam, mySound }) {
 
   async function press() {
     if (!canBuzz) return;
-    if (mySound) phoneSound().play(); // le son du joueur sort de son téléphone, pendant l'appui
+    pressedAt.current = Date.now();
     const n = Math.max(sent, result?.n || 0, mine?.n || 0) + 1;
     setSent(n);
     setPressed(true);
@@ -242,8 +245,12 @@ function PlayerBlind({ st, R, pid, myTeam, mySound }) {
         </div>
       )}
       <button
-        className={"buzzer" + (pos === 0 ? " first" : pos > 0 || pending ? " queued" : "") + (result?.ok ? " won" : "") + (locked ? " locked" : "") + (pressed ? " pressed" : "")}
-        disabled={!canBuzz} onPointerDown={press} aria-label="Buzzer"
+        className={"buzzer" + (!canBuzz ? " is-disabled" : "") + (pos === 0 ? " first" : pos > 0 || pending ? " queued" : "") + (result?.ok ? " won" : "") + (locked ? " locked" : "") + (pressed ? " pressed" : "")}
+        aria-disabled={!canBuzz} onPointerDown={press} aria-label="Buzzer"
+        onClick={() => {
+          // Le son part au relâchement du doigt : c'est là que le téléphone autorise la lecture
+          if (mySound && Date.now() - pressedAt.current < 2000) { phoneSound().play(); pressedAt.current = 0; }
+        }}
       >
         <span className="buzzer-ring" />
         <span className="buzzer-cap">
@@ -350,4 +357,25 @@ function PhoneSoundSync({ id, show }) {
   }, [id, show]);
   useEffect(() => () => phoneSound().show(false), []);
   return null;
+}
+
+/** « Tester mon son » : vérifie que le téléphone accepte de jouer le son du buzzer */
+function SoundTester() {
+  const [state, setState] = useState("idle"); // idle | playing | ok | blocked
+  function test() {
+    setState("playing");
+    phoneSound().play().then((ok) => setState(ok ? "ok" : "blocked"));
+  }
+  return (
+    <div className="sound-test">
+      <button className="btn btn-gold btn-sm" onClick={test}>🔊 Tester mon son</button>
+      {state === "ok" && <span className="st-ok">✓ Ça marche ! Ton téléphone jouera ce son quand tu buzzeras.</span>}
+      {state === "blocked" && (
+        <span className="st-ko">
+          Pas de son ? Vérifie le volume et le mode silencieux, puis touche <strong>▶ directement sur la petite vidéo</strong> en bas de l'écran
+          (s'il y en a une) et réessaie.
+        </span>
+      )}
+    </div>
+  );
 }
