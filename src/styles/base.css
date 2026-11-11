@@ -200,3 +200,48 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
 @keyframes rise { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px) scale(0.97); } to { opacity: 1; transform: none; } }
 @keyframes glow { 50% { box-shadow: 0 0 30px rgba(127, 214, 162, 0.45); } }
+
+/* ====== Décor de Noël (arrière-plan) ====== */
+.decor { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+.center-page, .host, .player, .config { position: relative; z-index: 1; }
+
+.snow span {
+  position: absolute; top: -12px; border-radius: 50%;
+  background: radial-gradient(circle, #fff 0 40%, rgba(255,255,255,0) 72%);
+  animation: fall linear infinite;
+}
+
+.bauble { position: absolute; top: 0; height: auto; filter: drop-shadow(0 10px 14px rgba(0,0,0,0.45)); transform-origin: 50% 0; animation: sway 6s ease-in-out infinite; }
+.bauble.b1 { left: 22%; width: 46px; animation-delay: -1s; }
+.bauble.b2 { left: 34%; width: 38px; animation-delay: -3s; opacity: 0.85; }
+.bauble.b3 { right: 30%; width: 34px; animation-delay: -2s; opacity: 0.8; }
+.bauble.b4 { right: 18%; width: 44px; animation-delay: -4s; }
+
+.deco-tree { position: absolute; left: -10px; bottom: -6px; width: clamp(130px, 14vw, 230px); height: auto; opacity: 0.55; filter: drop-shadow(0 0 12px rgba(226,184,100,0.3)); }
+.tree-star { transform-origin: 100px 32px; animation: twinkle 2.4s ease-in-out infinite; }
+.deco-ginger { position: absolute; right: 18px; bottom: 14px; width: clamp(80px, 7vw, 120px); height: auto; transform: rotate(10deg); opacity: 0.9; filter: drop-shadow(0 8px 14px rgba(0,0,0,0.45)); }
+
+/* Écran du maître du jeu : le décor se place au-dessus de la barre des scores */
+body[data-page="host"] .deco-tree { bottom: 74px; opacity: 0.4; }
+body[data-page="host"] .deco-ginger { bottom: 84px; }
+/* Config : on garde le décor discret derrière les formulaires */
+body[data-page="config"] .deco-ginger, body[data-page="config"] .deco-tree { opacity: 0.25; }
+
+@media (max-width: 700px) {
+  .bauble.b2, .bauble.b3 { display: none; }
+  .bauble.b1 { left: 6%; width: 32px; }
+  .bauble.b4 { right: 6%; width: 30px; }
+  .deco-tree { width: 110px; opacity: 0.35; }
+  .deco-ginger { width: 62px; right: 8px; bottom: 8px; opacity: 0.75; }
+  body[data-page="player"] .bauble, body[data-page="config"] .bauble { display: none; }
+  .snow span:nth-child(n+20) { display: none; }
+}
+
+@keyframes fall { to { transform: translate(var(--drift, 0), 110vh); } }
+@keyframes sway { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+@keyframes twinkle { 50% { opacity: 0.55; transform: scale(0.88); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .snow { display: none; }
+  .bauble, .tree-star { animation: none; }
+}

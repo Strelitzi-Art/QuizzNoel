@@ -42,6 +42,7 @@ function PlayerGame({ session }) {
     );
   }
 
+  const scoring = st.scoring !== false;
   const myRank = ranking(players).find((p) => p.pid === pid);
 
   return (
@@ -49,7 +50,7 @@ function PlayerGame({ session }) {
       <header className="p-top">
         <span className="p-name">{me.name}</span>
         {st.status !== "lobby" && st.status !== "ended" && <span className="p-progress">{st.qIndex + 1}/{st.total}</span>}
-        {!st.hideScores && <span className="p-score">{me.score || 0} pt{(me.score || 0) > 1 ? "s" : ""}</span>}
+        {scoring && !st.hideScores && <span className="p-score">{me.score || 0} pt{(me.score || 0) > 1 ? "s" : ""}</span>}
       </header>
 
       {st.status === "lobby" && <PlayerLobby players={players} title={st.title} />}
@@ -59,8 +60,9 @@ function PlayerGame({ session }) {
       {st.status === "ended" && (
         <div className="p-ended">
           <h2>Partie terminée</h2>
-          {myRank && <p className="p-myrank">Tu termines <strong>{myRank.rank === 1 ? "1er 🏆" : myRank.rank + "e"}</strong> avec {myRank.score} pt{myRank.score > 1 ? "s" : ""}</p>}
-          <Podium players={players} highlight={pid} />
+          {!scoring && <p className="p-myrank">Merci d'avoir joué, <strong>{me.name}</strong> !</p>}
+          {scoring && myRank && <p className="p-myrank">Tu termines <strong>{myRank.rank === 1 ? "1er 🏆" : myRank.rank + "e"}</strong> avec {myRank.score} pt{myRank.score > 1 ? "s" : ""}</p>}
+          {scoring && <Podium players={players} highlight={pid} />}
           <OptionalImage name={IMAGES.ranking} className="final-gif" />
         </div>
       )}

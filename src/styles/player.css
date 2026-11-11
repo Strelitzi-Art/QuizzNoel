@@ -57,3 +57,10 @@
 .p-ended .final-gif img { max-height: 220px; }
 
 @keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+.p-qtext, .p-choice, .fb, .p-revealed { overflow-wrap: anywhere; }
+@media (max-width: 380px) {
+  .player { padding: 0 12px 20px; }
+  .p-top { margin: 0 -12px 12px; padding: 10px 12px; }
+  .p-qtext { font-size: 20px; }
+  .p-choice { padding: 13px; font-size: 16px; }
+}

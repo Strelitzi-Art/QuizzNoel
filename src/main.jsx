@@ -6,6 +6,7 @@ import Home from "./pages/Home.jsx";
 import Host from "./pages/Host.jsx";
 import Player from "./pages/Player.jsx";
 import Config from "./pages/Config.jsx";
+import Decor from "./components/Decor.jsx";
 import "./styles/base.css";
 
 // Routes :
@@ -19,9 +20,11 @@ function route() {
   const seg = p.replace(/index\.html$/, "").split("/").filter(Boolean).map((s) => {
     try { return decodeURIComponent(s); } catch { return s; }
   });
-  if (seg[0] === "accueil") return <Host />;
-  if (seg[0] === "quizz" && seg[1] === "config") return <Config />;
-  if (seg[0] === "quizz" && seg[1]) return <Player name={seg[1]} />;
+  const page = seg[0] === "accueil" ? "host" : seg[0] === "quizz" && seg[1] === "config" ? "config" : seg[0] === "quizz" && seg[1] ? "player" : "home";
+  document.body.dataset.page = page; // permet d'adapter le décor selon la page
+  if (page === "host") return <Host />;
+  if (page === "config") return <Config />;
+  if (page === "player") return <Player name={seg[1]} />;
   return <Home />;
 }
 
@@ -33,6 +36,7 @@ initDB(firebaseConfig)
   .then((db) => {
     root.render(
       <>
+        <Decor />
         {db.kind === "demo" && (
           <div className="demo-banner">
             Mode démo : les données restent dans ce navigateur (teste avec plusieurs onglets). Configure Firebase pour jouer sur portable.

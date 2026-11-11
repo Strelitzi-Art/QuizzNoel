@@ -75,7 +75,7 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
   function stateFromSettings(s, deck) {
     return {
       status: "lobby", qIndex: -1, total: deck.length, title: s.title,
-      hideScores: !!s.hideScores, lateJoin: !!s.lateJoin, mode: s.mode,
+      hideScores: !!s.hideScores, lateJoin: !!s.lateJoin, mode: s.mode, scoring: s.scoring !== false,
       attempts: Number(s.attempts) || 0, timer: Number(s.timer) || 0, gameId: rid(),
     };
   }
@@ -167,12 +167,15 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
       upd[`results/${i}/${pid}`] = L.results[pid];
       if (ok) {
         const rank = Object.keys(L.found).length + 1;
-        const pts = (Number(set.points) || 1) + (rank === 1 ? Number(set.firstBonus) || 0 : 0);
+        const scoring = set.scoring !== false;
+        const pts = scoring ? (Number(set.points) || 1) + (rank === 1 ? Number(set.firstBonus) || 0 : 0) : 0;
         L.found[pid] = { name: p.name, rank, pts, at: db.now() };
         upd[`found/${i}/${pid}`] = L.found[pid];
-        const score = (scores.current[pid] ?? p.score ?? 0) + pts;
-        scores.current[pid] = score;
-        upd[`players/${pid}/score`] = score;
+        if (scoring) {
+          const score = (scores.current[pid] ?? p.score ?? 0) + pts;
+          scores.current[pid] = score;
+          upd[`players/${pid}/score`] = score;
+        }
         if (set.mode === "first") close = true;
       }
     }
@@ -227,7 +230,7 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
         )}
         {st.status === "ended" && (
           <div className="final-wrap">
-            <Podium players={players} />
+            {st.scoring !== false ? <Podium players={players} /> : <ThanksEnd players={players} />}
             <OptionalImage name={IMAGES.ranking} className="final-gif" />
           </div>
         )}
@@ -261,7 +264,7 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
       </div>
 
       {st.status !== "ended" && st.status !== "lobby" && (
-        <Scoreboard players={players} hidden={st.hideScores} onToggle={toggleScores} found={found} />
+        <Scoreboard players={players} hidden={st.hideScores} onToggle={toggleScores} found={found} scoring={st.scoring !== false} />
       )}
       {st.status === "lobby" && playerCount > 0 && (
         <div className="lobby-hint">{playerCount} joueur{playerCount > 1 ? "s" : ""} prêt{playerCount > 1 ? "s" : ""}</div>
@@ -339,7 +342,7 @@ function QuestionView({ st, answers, found, playerCount, deckQ }) {
             <li key={f.name} className="pop">
               <span className="f-rank">{f.rank}</span>
               <span className="f-name">{f.name}</span>
-              <span className="f-pts">+{f.pts}</span>
+              {f.pts > 0 && <span className="f-pts">+{f.pts}</span>}
             </li>
           ))}
         </ol>
@@ -348,21 +351,34 @@ function QuestionView({ st, answers, found, playerCount, deckQ }) {
   );
 }
 
-function Scoreboard({ players, hidden, onToggle, found }) {
+function Scoreboard({ players, hidden, onToggle, found, scoring }) {
   let list = ranking(players);
-  if (hidden) list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+  if (hidden || !scoring) list = [...list].sort((a, b) => a.name.localeCompare(b.name));
   const foundNames = new Set(Object.values(found || {}).map((f) => f.name));
   return (
     <footer className="scoreboard">
-      <button className="btn btn-ghost btn-sm" onClick={onToggle}>{hidden ? "👁 Afficher les points" : "🙈 Masquer les points"}</button>
+      {scoring && <button className="btn btn-ghost btn-sm" onClick={onToggle}>{hidden ? "👁 Afficher les points" : "🙈 Masquer les points"}</button>}
       <div className="sb-list">
         {list.map((p) => (
           <div key={p.pid} className={"sb-item" + (foundNames.has(p.name) ? " got" : "")}>
             <span className="sb-name">{p.name}</span>
-            <span className="sb-score">{hidden ? "•" : p.score}</span>
+            {scoring && <span className="sb-score">{hidden ? "•" : p.score}</span>}
           </div>
         ))}
       </div>
     </footer>
+  );
+}
+
+/** Fin de partie sans points : pas de vainqueur, juste les participants */
+function ThanksEnd({ players }) {
+  const list = Object.values(players || {}).sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0));
+  return (
+    <div className="final thanks">
+      <div className="sigil big">✦</div>
+      <h2 className="winner">Merci d'avoir joué !</h2>
+      <p className="muted">Partie terminée avec {list.length} participant{list.length > 1 ? "s" : ""}</p>
+      <div className="chips">{list.map((p) => <div key={p.name} className="chip">{p.name}</div>)}</div>
+    </div>
   );
 }

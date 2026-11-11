@@ -4,6 +4,7 @@ import { SITE_TITLE } from "../firebaseConfig.js";
 
 export const DEFAULT_SETTINGS = {
   title: SITE_TITLE,
+  scoring: true,        // compter les points (classement et vainqueur à la fin)
   mode: "all",          // "all" : tous ceux qui trouvent marquent | "first" : seul le premier marque
   points: 1,            // points par bonne réponse
   firstBonus: 0,        // bonus pour le premier à trouver

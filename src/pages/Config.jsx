@@ -89,20 +89,28 @@ function ConfigEditor({ admin, onChangeKey }) {
 
       <section className="card cfg-section">
         <h2>Prochaine partie</h2>
+        <div className="mode-switch">
+          <button type="button" className={"mode-opt" + (s.scoring ? " active" : "")} onClick={() => setS("scoring", true)}>
+            <strong>Avec points</strong><span>Score, classement et vainqueur à la fin</span>
+          </button>
+          <button type="button" className={"mode-opt" + (!s.scoring ? " active" : "")} onClick={() => setS("scoring", false)}>
+            <strong>Sans points</strong><span>Juste pour le plaisir : pas de score ni de vainqueur</span>
+          </button>
+        </div>
         <div className="grid">
           <label className="field"><span>Titre du quizz</span>
             <input value={s.title} onChange={(e) => setS("title", e.target.value)} /></label>
           <label className="field"><span>Mot de passe des joueurs</span>
             <input value={cfg.gamePassword} onChange={(e) => change((c) => { c.gamePassword = e.target.value; })} placeholder="ex : soiree2026" /></label>
-          <label className="field"><span>Qui marque des points ?</span>
+          <label className="field"><span>Bonnes réponses</span>
             <select value={s.mode} onChange={(e) => setS("mode", e.target.value)}>
-              <option value="all">Tous ceux qui trouvent</option>
-              <option value="first">Seulement le premier (la question se ferme)</option>
+              <option value="all">Tout le monde peut trouver</option>
+              <option value="first">Seul le premier (la question se ferme)</option>
             </select></label>
-          <label className="field"><span>Points par bonne réponse</span>
-            <input type="number" min="1" value={s.points} onChange={(e) => setS("points", Math.max(1, num(e.target.value)))} /></label>
-          <label className="field"><span>Bonus pour le 1er</span>
-            <input type="number" min="0" value={s.firstBonus} onChange={(e) => setS("firstBonus", num(e.target.value))} /></label>
+          <label className={"field" + (s.scoring ? "" : " off")}><span>Points par bonne réponse</span>
+            <input type="number" min="1" disabled={!s.scoring} value={s.points} onChange={(e) => setS("points", Math.max(1, num(e.target.value)))} /></label>
+          <label className={"field" + (s.scoring ? "" : " off")}><span>Bonus pour le 1er</span>
+            <input type="number" min="0" disabled={!s.scoring} value={s.firstBonus} onChange={(e) => setS("firstBonus", num(e.target.value))} /></label>
           <label className="field"><span>Chrono par question (s, 0 = aucun)</span>
             <input type="number" min="0" value={s.timer} onChange={(e) => setS("timer", num(e.target.value))} /></label>
           <label className="field"><span>Essais (texte libre, 0 = illimité)</span>
@@ -116,7 +124,7 @@ function ConfigEditor({ admin, onChangeKey }) {
           <Check label="Afficher la réponse à la fin de chaque question" v={s.autoReveal} on={(v) => setS("autoReveal", v)} />
           <Check label="Autoriser à rejoindre une partie en cours" v={s.lateJoin} on={(v) => setS("lateJoin", v)} />
           <Check label="Afficher le mot de passe sur l'écran de jeu" v={s.showPassword} on={(v) => setS("showPassword", v)} />
-          <Check label="Points masqués au démarrage" v={s.hideScores} on={(v) => setS("hideScores", v)} />
+          {s.scoring && <Check label="Points masqués au démarrage" v={s.hideScores} on={(v) => setS("hideScores", v)} />}
         </div>
         <p className="muted">{enabledCount} question{enabledCount > 1 ? "s" : ""} valide{enabledCount > 1 ? "s" : ""} dans les catégories cochées.</p>
       </section>

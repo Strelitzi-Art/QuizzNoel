@@ -6,3 +6,6 @@
 .home-links { display: flex; gap: 10px; font-size: 13px; color: var(--muted); margin-top: 12px; }
 .home-links a { color: var(--muted); }
 .small-link { font-size: 13px; color: var(--muted); text-align: center; }
+@media (max-width: 420px) {
+  .card.join, .card.gate { padding: 18px 16px; }
+}
