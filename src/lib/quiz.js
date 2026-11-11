@@ -26,6 +26,9 @@ export const DEFAULT_SETTINGS = {
   blindShuffle: true,   // mélange les morceaux à l'intérieur de chaque manche
   blindCheck: "auto",   // réponse au buzzer : "auto" (le jeu valide), "assist" (le jeu teste, le MJ confirme), "manual"
   hostSignal: { link: "", start: "", end: "" }, // son joué sur l'écran de jeu à chaque buzz (extrait YouTube)
+  endMusic: { link: "", start: "" },             // musique en boucle pendant le classement final (YouTube)
+  quizBg: { link: "", start: "", volume: 35 },   // quiz : musique de fond en boucle pendant les questions
+  quizCorrect: { link: "", start: "", end: "" }, // quiz : son joué quand quelqu'un trouve la bonne réponse
 };
 
 export const TEAM_COLORS = ["#e5484d", "#e2b864", "#46a771", "#7fb4ff", "#c89bff", "#ff9f5a"];
@@ -117,6 +120,12 @@ export function normalizeConfig(c) {
       st.teamCount = Math.min(6, Math.max(2, Number(st.teamCount) || 2));
       const sig = st.hostSignal && typeof st.hostSignal === "object" ? st.hostSignal : {};
       st.hostSignal = { link: sig.link || "", start: sig.start ?? "", end: sig.end ?? "" };
+      const em = st.endMusic && typeof st.endMusic === "object" ? st.endMusic : {};
+      st.endMusic = { link: em.link || "", start: em.start ?? "" };
+      const bg = st.quizBg && typeof st.quizBg === "object" ? st.quizBg : {};
+      st.quizBg = { link: bg.link || "", start: bg.start ?? "", volume: Number.isFinite(+bg.volume) && bg.volume !== "" ? +bg.volume : 35 };
+      const qc = st.quizCorrect && typeof st.quizCorrect === "object" ? st.quizCorrect : {};
+      st.quizCorrect = { link: qc.link || "", start: qc.start ?? "", end: qc.end ?? "" };
       delete st.builtinSounds; delete st.hostBuzzSound; delete st.phoneBuzzSound;
       return st;
     })(),

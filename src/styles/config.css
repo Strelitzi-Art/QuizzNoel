@@ -121,3 +121,28 @@
 .section-head.sub { margin: 18px 0 4px; }
 .sounds-help { margin: 0 0 12px; }
 .clear-sig { margin-top: 8px; }
+.track-times.single { grid-template-columns: minmax(0, 200px); }
+
+/* ====== Onglets ====== */
+.cfg-tabs {
+  position: sticky; top: 8px; z-index: 9; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 6px;
+  border-radius: 18px; background: rgba(20, 2, 6, 0.85); border: 1px solid var(--line); backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.cfg-tabs button {
+  font: inherit; color: var(--muted); cursor: pointer; border: 1px solid transparent; border-radius: 13px;
+  background: none; padding: 10px 8px; display: flex; flex-direction: column; align-items: center; gap: 2px; transition: background .15s, color .15s;
+}
+.cfg-tabs button strong { font-family: var(--font-title); font-size: 17px; letter-spacing: 0.03em; }
+.cfg-tabs button small { font-size: 12px; opacity: 0.85; }
+.cfg-tabs button:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+.cfg-tabs button.active { color: #3a1206; background: linear-gradient(180deg, var(--gold-2), var(--gold)); }
+.sub-title.spaced { margin-top: 22px; }
+.clip-editor { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.clip-editor .clear-sig { align-self: flex-start; margin-top: 0; }
+.field.volume { margin-top: 12px; max-width: 420px; }
+.field.volume input[type="range"] { padding: 0; accent-color: var(--gold); }
+@media (max-width: 600px) {
+  .cfg-tabs button strong { font-size: 15px; }
+  .cfg-tabs button { padding: 8px 4px; }
+}

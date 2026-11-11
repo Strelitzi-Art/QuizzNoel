@@ -25,12 +25,13 @@ export function buildSoundCatalog(cfg) {
     }));
 }
 
-/** Son de signal de l'écran du maître du jeu (ou null s'il n'y en a pas) */
-export function buildSignal(settings) {
-  const s = settings?.hostSignal;
-  if (!s || !youtubeId(s.link)) return null;
-  return { id: "signal", link: s.link.trim(), ...clip(s) };
+/** Extrait YouTube { link, start, end } prêt à jouer (ou null) */
+export function buildClip(obj, id) {
+  if (!obj || !youtubeId(obj.link)) return null;
+  return { id, link: obj.link.trim(), ...clip(obj) };
 }
+/** Son de signal de l'écran du maître du jeu (ou null s'il n'y en a pas) */
+export const buildSignal = (settings) => buildClip(settings?.hostSignal, "signal");
 
 let catalog = [];
 /** Liste des sons de la partie en cours (envoyée par l'écran de jeu) */
@@ -48,8 +49,10 @@ export function firstFreeSound(taken) {
 /* ---- Écran du maître du jeu : le son de signal ---- */
 let bank = null;
 const getBank = () => (bank ||= new SoundBank());
-export const primeSignal = (signal) => { if (signal) getBank().prime([signal]); };
-export const playSignal = (signal) => { if (signal) getBank().play(signal); };
+export const primeClip = (c) => { if (c) getBank().prime([c]); };
+export const playClip = (c) => { if (c) getBank().play(c); };
+export const primeSignal = primeClip;
+export const playSignal = playClip;
 
 /* ---- Téléphone du joueur : son propre son ---- */
 let phone = null;

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { getDB, useDb } from "../lib/db.js";
 import { LS, BASE, rid, roomKeyFor, ranking } from "../lib/utils.js";
-import { normalizeConfig, buildDeck, buildBlindDeck, answerText, checkAnswer, checkBlind, countWords, toArr, TEAM_COLORS } from "../lib/quiz.js";
-import { TrackPlayer } from "../lib/media.js";
-import { soundById, firstFreeSound, buildSoundCatalog, buildSignal, setSoundCatalog, getSoundCatalog, primeSignal, playSignal } from "../lib/sounds.js";
+import { parseTime, normalizeConfig, buildDeck, buildBlindDeck, answerText, checkAnswer, checkBlind, countWords, toArr, TEAM_COLORS } from "../lib/quiz.js";
+import { TrackPlayer, LoopMusic, youtubeStart } from "../lib/media.js";
+import { soundById, firstFreeSound, buildSoundCatalog, buildSignal, buildClip, setSoundCatalog, getSoundCatalog, primeSignal, playSignal, primeClip, playClip } from "../lib/sounds.js";
 import MusicStage from "../components/MusicStage.jsx";
 import AdminGate from "../components/AdminGate.jsx";
 import Timer, { useRemaining } from "../components/Timer.jsx";
@@ -88,6 +88,45 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
   const resumeAudio = () => media.resume();
   const stopAudio = () => media.stop();
   const playFull = () => media.playFull();
+
+  // Musique de fin : se lance avec le classement, en boucle ; le bouton coupe le son sans arrêter la musique
+  const endMusicRef = useRef(null);
+  if (!endMusicRef.current) endMusicRef.current = new LoopMusic();
+  const [endMuted, setEndMuted] = useState(false);
+  const endMusic = current?.settings?.endMusic;
+  useEffect(() => {
+    const m = endMusicRef.current;
+    if (st?.status === "ended" && endMusic?.link) {
+      m.start({ link: endMusic.link, start: parseTime(endMusic.start) ?? youtubeStart(endMusic.link) ?? 0 });
+    } else m.stop();
+  }, [st?.status, st?.gameId, endMusic?.link, endMusic?.start]);
+  useEffect(() => () => endMusicRef.current.stop(), []);
+  const toggleEndMute = () => { const v = !endMuted; setEndMuted(v); endMusicRef.current.setMuted(v); };
+
+  // Quiz : musique de fond en boucle pendant les questions (elle continue d'une question à l'autre)
+  const bgRef = useRef(null);
+  if (!bgRef.current) bgRef.current = new LoopMusic("quiz-bg");
+  const [bgMuted, setBgMuted] = useState(false);
+  const quizBg = current?.settings?.quizBg;
+  const bgOn = !!quizBg?.link && st?.gameType !== "blind" && (st?.status === "question" || st?.status === "closed");
+  useEffect(() => {
+    if (bgOn) bgRef.current.start({ link: quizBg.link, start: parseTime(quizBg.start) ?? youtubeStart(quizBg.link) ?? 0, volume: quizBg.volume });
+    else bgRef.current.stop();
+  }, [bgOn, quizBg?.link, quizBg?.start, quizBg?.volume]);
+  useEffect(() => () => bgRef.current.stop(), []);
+  const toggleBgMute = () => { const v = !bgMuted; setBgMuted(v); bgRef.current.setMuted(v); };
+
+  // Quiz : son joué chaque fois que quelqu'un trouve la bonne réponse
+  const correctClip = buildClip(current?.settings?.quizCorrect, "quiz-correct");
+  useEffect(() => { primeClip(correctClip); }, [correctClip?.link, correctClip?.start]);
+  const foundSeen = useRef({ qi: -9, n: 0 });
+  useEffect(() => {
+    if (!inQuestion || isBlind) return;
+    const n = Object.keys(found || {}).length;
+    if (foundSeen.current.qi !== qi) { foundSeen.current = { qi, n }; return; } // nouvelle question (ou rechargement) : pas de son
+    if (n > foundSeen.current.n) playClip(correctClip);
+    foundSeen.current.n = n;
+  }, [found, qi, inQuestion, isBlind]);
 
   // Son de signal de l'écran de jeu : préchargé pour partir sans délai au buzz
   const signal = buildSignal(current?.settings);
@@ -504,6 +543,9 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
           </div>
         )}
         <div className="host-tools">
+          {bgOn && (
+            <button className="btn btn-ghost btn-sm" onClick={toggleBgMute} title="Musique de fond du quiz">{bgMuted ? "🔊 Fond" : "🔇 Fond"}</button>
+          )}
           {st.status !== "lobby" && (
             <button className="btn btn-ghost btn-sm home-btn" title="Arrêter la partie sans classement et revenir au salon d'attente"
               onClick={() => confirm("Arrêter la partie maintenant, sans classement, et revenir au salon d'attente ?") && newGame(true, gameType)}>
@@ -589,6 +631,9 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
         )}
         {st.status === "ended" && (
           <>
+            {endMusic?.link && (
+              <button className="btn btn-ghost" onClick={toggleEndMute}>{endMuted ? "🔊 Remettre le son" : "🔇 Couper le son"}</button>
+            )}
             <button className="btn btn-ghost" onClick={() => newGame(false, gameType)}>Nouvelle partie (vider les joueurs)</button>
             <button className="btn btn-gold btn-big" onClick={() => newGame(true, gameType)}>Rejouer avec les mêmes joueurs</button>
           </>

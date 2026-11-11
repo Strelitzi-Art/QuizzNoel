@@ -20,6 +20,7 @@ function ConfigEditor({ admin, onChangeKey }) {
   const [saved, setSaved] = useState("");
   const [open, setOpen] = useState(() => new Set());
   const [othersChanged, setOthersChanged] = useState(false);
+  const [tab, setTab] = useState(() => LS.get("quizz-config-tab") || "general");
   const fileRef = useRef(null);
   const path = `q/${admin.adminKey}/config`;
   // Version de départ, pour fusionner avec les modifications des autres au moment d'enregistrer
@@ -104,6 +105,15 @@ function ConfigEditor({ admin, onChangeKey }) {
   const s = cfg.settings;
   const enabledCount = cfg.categories.filter((c) => c.enabled).reduce((n, c) => n + c.questions.filter(isValidQuestion).length, 0);
 
+  const blindCount = cfg.blind.reduce((n, r, i) => n + (r.enabled ? r.tracks.filter((t) => isValidTrack(t, BLIND_ROUNDS[i].kind)).length : 0), 0);
+  const TABS = [
+    { id: "general", label: "Général", hint: "Les deux jeux" },
+    { id: "quiz", label: "Quiz", hint: `${enabledCount} question${enabledCount > 1 ? "s" : ""}` },
+    { id: "blind", label: "Blind test", hint: `${blindCount} morceau${blindCount > 1 ? "x" : ""}` },
+  ];
+  const selectTab = (t) => { setTab(t); LS.set("quizz-config-tab", t); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const setClip = (key) => (fn) => change((c) => { fn(c.settings[key]); });
+
   return (
     <div className="config">
       <header className="cfg-top">
@@ -114,103 +124,166 @@ function ConfigEditor({ admin, onChangeKey }) {
         </div>
       </header>
 
-      <section className="card cfg-section">
-        <h2>Prochaine partie</h2>
-        <div className="mode-switch">
-          <button type="button" className={"mode-opt" + (s.scoring ? " active" : "")} onClick={() => setS("scoring", true)}>
-            <strong>Avec points</strong><span>Score, classement et vainqueur à la fin</span>
+      <nav className="cfg-tabs">
+        {TABS.map((t) => (
+          <button key={t.id} className={tab === t.id ? "active" : ""} onClick={() => selectTab(t.id)}>
+            <strong>{t.label}</strong><small>{t.hint}</small>
           </button>
-          <button type="button" className={"mode-opt" + (!s.scoring ? " active" : "")} onClick={() => setS("scoring", false)}>
-            <strong>Sans points</strong><span>Juste pour le plaisir : pas de score ni de vainqueur</span>
-          </button>
-        </div>
-        <div className="grid">
-          <label className="field"><span>Titre du quizz</span>
-            <input value={s.title} onChange={(e) => setS("title", e.target.value)} /></label>
-          <label className="field"><span>Mot de passe des joueurs</span>
-            <input value={cfg.gamePassword} onChange={(e) => change((c) => { c.gamePassword = e.target.value; })} placeholder="ex : soiree2026" /></label>
-          <label className="field"><span>Bonnes réponses</span>
-            <select value={s.mode} onChange={(e) => setS("mode", e.target.value)}>
-              <option value="all">Tout le monde peut trouver</option>
-              <option value="first">Seul le premier (la question se ferme)</option>
-            </select></label>
-          <label className={"field" + (s.scoring ? "" : " off")}><span>Points par bonne réponse</span>
-            <input type="number" min="1" disabled={!s.scoring} value={s.points} onChange={(e) => setS("points", Math.max(1, num(e.target.value)))} /></label>
-          <label className={"field" + (s.scoring ? "" : " off")}><span>Bonus pour le 1er</span>
-            <input type="number" min="0" disabled={!s.scoring} value={s.firstBonus} onChange={(e) => setS("firstBonus", num(e.target.value))} /></label>
-          <label className="field"><span>Chrono par question (s, 0 = aucun)</span>
-            <input type="number" min="0" value={s.timer} onChange={(e) => setS("timer", num(e.target.value))} /></label>
-          <label className="field"><span>Essais (texte libre, 0 = illimité)</span>
-            <input type="number" min="0" value={s.attempts} onChange={(e) => setS("attempts", num(e.target.value))} /></label>
-          <label className="field"><span>Nombre de questions (0 = toutes)</span>
-            <input type="number" min="0" value={s.maxQuestions} onChange={(e) => setS("maxQuestions", num(e.target.value))} /></label>
-        </div>
-        <div className="checks">
-          <Check label="Mélanger les questions" v={s.shuffle} on={(v) => setS("shuffle", v)} />
-          <Check label="Tolérer les petites fautes de frappe" v={s.tolerance} on={(v) => setS("tolerance", v)} />
-          <Check label="Afficher la réponse à la fin de chaque question" v={s.autoReveal} on={(v) => setS("autoReveal", v)} />
-          <Check label="Autoriser à rejoindre une partie en cours" v={s.lateJoin} on={(v) => setS("lateJoin", v)} />
-          <Check label="Afficher le mot de passe sur l'écran de jeu" v={s.showPassword} on={(v) => setS("showPassword", v)} />
-          {s.scoring && <Check label="Points masqués au démarrage" v={s.hideScores} on={(v) => setS("hideScores", v)} />}
-        </div>
-        <p className="muted">{enabledCount} question{enabledCount > 1 ? "s" : ""} valide{enabledCount > 1 ? "s" : ""} dans les catégories cochées.</p>
-      </section>
-
-      <section className="card cfg-section">
-        <h2>Équipes</h2>
-        <Check label="Jouer en équipes (une bonne réponse = un point pour toute l'équipe)" v={s.teams} on={(v) => setS("teams", v)} />
-        {s.teams && (
-          <>
-            <label className="field team-count"><span>Nombre d'équipes</span>
-              <select value={s.teamCount} onChange={(e) => setS("teamCount", Number(e.target.value))}>
-                {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} équipes</option>)}
-              </select>
-            </label>
-            <div className="team-names">
-              {s.teamNames.slice(0, s.teamCount).map((n, i) => (
-                <label key={i} className="team-name" style={{ "--team": TEAM_COLORS[i] }}>
-                  <span className="dot" />
-                  <input value={n} onChange={(e) => change((c) => { c.settings.teamNames[i] = e.target.value; })} />
-                </label>
-              ))}
-            </div>
-            <p className="muted small">Ce sont les réglages par défaut : tu peux aussi passer en solo ou en équipes, changer le nombre d'équipes et leurs noms directement dans le salon d'attente de l'écran de jeu.</p>
-          </>
-        )}
-      </section>
-
-      <section className="cfg-section">
-        <div className="section-head">
-          <h2>Catégories</h2>
-          <div className="row">
-            <button className="btn btn-ghost btn-sm" onClick={exportJson}>Exporter (JSON)</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => fileRef.current.click()}>Importer</button>
-            <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={(e) => e.target.files[0] && importJson(e.target.files[0])} />
-            <button className="btn btn-gold btn-sm" onClick={() => {
-              const id = rid(4);
-              change((c) => { c.categories.push({ id, name: "Nouvelle catégorie", enabled: true, questions: [] }); });
-              setOpen((o) => new Set(o).add(id));
-            }}>+ Catégorie</button>
-          </div>
-        </div>
-
-        {cfg.categories.length === 0 && <p className="muted">Aucune catégorie. Ajoute-en une !</p>}
-        {cfg.categories.map((cat, ci) => (
-          <Category
-            key={cat.id} cat={cat} isOpen={open.has(cat.id)} onToggle={() => toggleOpen(cat.id)}
-            edit={(fn) => change((c) => fn(c.categories[ci]))}
-            remove={() => confirm(`Supprimer la catégorie « ${cat.name} » et ses ${cat.questions.length} questions ?`) && change((c) => { c.categories.splice(ci, 1); })}
-          />
         ))}
-      </section>
+      </nav>
 
-      <BlindSection cfg={cfg} change={change} setS={setS} />
-      <SoundsSection cfg={cfg} change={change} setS={setS} />
+      {/* ================= GÉNÉRAL ================= */}
+      {tab === "general" && (
+        <>
+          <section className="card cfg-section">
+            <h2>La partie</h2>
+            <div className="mode-switch">
+              <button type="button" className={"mode-opt" + (s.scoring ? " active" : "")} onClick={() => setS("scoring", true)}>
+                <strong>Avec points</strong><span>Score, classement et vainqueur à la fin</span>
+              </button>
+              <button type="button" className={"mode-opt" + (!s.scoring ? " active" : "")} onClick={() => setS("scoring", false)}>
+                <strong>Sans points</strong><span>Juste pour le plaisir : pas de score ni de vainqueur</span>
+              </button>
+            </div>
+            <div className="grid">
+              <label className="field"><span>Titre</span>
+                <input value={s.title} onChange={(e) => setS("title", e.target.value)} /></label>
+              <label className="field"><span>Mot de passe des joueurs</span>
+                <input value={cfg.gamePassword} onChange={(e) => change((c) => { c.gamePassword = e.target.value; })} placeholder="ex : soiree2026" /></label>
+              <label className={"field" + (s.scoring ? "" : " off")}><span>Points par bonne réponse</span>
+                <input type="number" min="1" disabled={!s.scoring} value={s.points} onChange={(e) => setS("points", Math.max(1, num(e.target.value)))} /></label>
+            </div>
+            <div className="checks">
+              <Check label="Afficher la réponse à la fin de chaque question / morceau" v={s.autoReveal} on={(v) => setS("autoReveal", v)} />
+              <Check label="Autoriser à rejoindre une partie en cours" v={s.lateJoin} on={(v) => setS("lateJoin", v)} />
+              <Check label="Afficher le mot de passe sur l'écran de jeu" v={s.showPassword} on={(v) => setS("showPassword", v)} />
+              {s.scoring && <Check label="Points masqués au démarrage" v={s.hideScores} on={(v) => setS("hideScores", v)} />}
+            </div>
+          </section>
 
-      <section className="card cfg-section danger-zone">
-        <h2>Sécurité</h2>
-        <button className="btn btn-ghost btn-sm" onClick={changeAdminPassword}>Changer le mot de passe de configuration</button>
-      </section>
+          <section className="card cfg-section">
+            <h2>Équipes</h2>
+            <Check label="Jouer en équipes (une bonne réponse = un point pour toute l'équipe)" v={s.teams} on={(v) => setS("teams", v)} />
+            {s.teams && (
+              <>
+                <label className="field team-count"><span>Nombre d'équipes</span>
+                  <select value={s.teamCount} onChange={(e) => setS("teamCount", Number(e.target.value))}>
+                    {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} équipes</option>)}
+                  </select>
+                </label>
+                <div className="team-names">
+                  {s.teamNames.slice(0, s.teamCount).map((n, i) => (
+                    <label key={i} className="team-name" style={{ "--team": TEAM_COLORS[i] }}>
+                      <span className="dot" />
+                      <input value={n} onChange={(e) => change((c) => { c.settings.teamNames[i] = e.target.value; })} />
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
+            <p className="muted small">Ce sont les réglages par défaut : tu peux aussi passer en solo ou en équipes, changer le nombre d'équipes et leurs noms directement dans le salon d'attente de l'écran de jeu.</p>
+          </section>
+
+          <section className="card cfg-section">
+            <h2>Musique de fin</h2>
+            <p className="muted small">
+              Se lance sur l'écran de jeu à l'affichage du classement final (quiz et blind test) et tourne <strong>en boucle</strong>.
+              Un bouton permet d'en couper le son pendant le classement. Laisse vide pour aucune musique.
+            </p>
+            <ClipEditor id="end-music" value={s.endMusic} onChange={setClip("endMusic")} withEnd={false} preview={15} />
+          </section>
+
+          <section className="card cfg-section">
+            <h2>Sauvegarde</h2>
+            <p className="muted small">Télécharge toutes tes questions et tous tes morceaux dans un fichier, ou ajoute ceux d'un fichier.</p>
+            <div className="row">
+              <button className="btn btn-ghost btn-sm" onClick={exportJson}>Exporter (JSON)</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => fileRef.current.click()}>Importer</button>
+              <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={(e) => e.target.files[0] && importJson(e.target.files[0])} />
+            </div>
+          </section>
+
+          <section className="card cfg-section danger-zone">
+            <h2>Sécurité</h2>
+            <button className="btn btn-ghost btn-sm" onClick={changeAdminPassword}>Changer le mot de passe de configuration</button>
+          </section>
+        </>
+      )}
+
+      {/* ================= QUIZ ================= */}
+      {tab === "quiz" && (
+        <>
+          <section className="card cfg-section">
+            <h2>Réglages du quiz</h2>
+            <div className="grid">
+              <label className="field"><span>Bonnes réponses</span>
+                <select value={s.mode} onChange={(e) => setS("mode", e.target.value)}>
+                  <option value="all">Tout le monde peut trouver</option>
+                  <option value="first">Seul le premier (la question se ferme)</option>
+                </select></label>
+              {s.scoring && (
+                <label className="field"><span>Bonus pour le 1er</span>
+                  <input type="number" min="0" value={s.firstBonus} onChange={(e) => setS("firstBonus", num(e.target.value))} /></label>
+              )}
+              <label className="field"><span>Chrono par question (s, 0 = aucun)</span>
+                <input type="number" min="0" value={s.timer} onChange={(e) => setS("timer", num(e.target.value))} /></label>
+              <label className="field"><span>Essais (texte libre, 0 = illimité)</span>
+                <input type="number" min="0" value={s.attempts} onChange={(e) => setS("attempts", num(e.target.value))} /></label>
+              <label className="field"><span>Nombre de questions (0 = toutes)</span>
+                <input type="number" min="0" value={s.maxQuestions} onChange={(e) => setS("maxQuestions", num(e.target.value))} /></label>
+            </div>
+            <div className="checks">
+              <Check label="Mélanger les questions" v={s.shuffle} on={(v) => setS("shuffle", v)} />
+              <Check label="Tolérer les petites fautes de frappe" v={s.tolerance} on={(v) => setS("tolerance", v)} />
+            </div>
+          </section>
+
+          <section className="card cfg-section">
+            <h2>Sons du quiz</h2>
+            <h3 className="sub-title">Musique de fond</h3>
+            <p className="muted small">Tourne en boucle sur l'écran de jeu pendant les questions, sans redémarrer d'une question à l'autre. Un bouton « Fond » permet de la couper pendant la partie.</p>
+            <ClipEditor id="quiz-bg" value={s.quizBg} onChange={setClip("quizBg")} withEnd={false} preview={15} />
+            <label className="field volume">
+              <span>Volume de la musique de fond : {s.quizBg.volume} %</span>
+              <input type="range" min="5" max="100" step="5" value={s.quizBg.volume} onChange={(e) => change((c) => { c.settings.quizBg.volume = Number(e.target.value); })} />
+            </label>
+            <h3 className="sub-title spaced">Son de bonne réponse</h3>
+            <p className="muted small">Joué sur l'écran de jeu chaque fois que quelqu'un trouve la bonne réponse (3 secondes environ, 8 au maximum).</p>
+            <ClipEditor id="quiz-correct" value={s.quizCorrect} onChange={setClip("quizCorrect")} withEnd />
+          </section>
+
+          <section className="cfg-section">
+            <div className="section-head">
+              <h2>Questions</h2>
+              <div className="row">
+                <button className="btn btn-gold btn-sm" onClick={() => {
+                  const id = rid(4);
+                  change((c) => { c.categories.push({ id, name: "Nouvelle catégorie", enabled: true, questions: [] }); });
+                  setOpen((o) => new Set(o).add(id));
+                }}>+ Catégorie</button>
+              </div>
+            </div>
+            <p className="muted small">{enabledCount} question{enabledCount > 1 ? "s" : ""} valide{enabledCount > 1 ? "s" : ""} dans les catégories cochées.</p>
+            {cfg.categories.length === 0 && <p className="muted">Aucune catégorie. Ajoute-en une !</p>}
+            {cfg.categories.map((cat, ci) => (
+              <Category
+                key={cat.id} cat={cat} isOpen={open.has(cat.id)} onToggle={() => toggleOpen(cat.id)}
+                edit={(fn) => change((c) => fn(c.categories[ci]))}
+                remove={() => confirm(`Supprimer la catégorie « ${cat.name} » et ses ${cat.questions.length} questions ?`) && change((c) => { c.categories.splice(ci, 1); })}
+              />
+            ))}
+          </section>
+        </>
+      )}
+
+      {/* ================= BLIND TEST ================= */}
+      {tab === "blind" && (
+        <>
+          <BlindSection cfg={cfg} change={change} setS={setS} part="settings" />
+          <SoundsSection cfg={cfg} change={change} setS={setS} />
+          <BlindSection cfg={cfg} change={change} setS={setS} part="rounds" />
+        </>
+      )}
 
       <div className={"save-bar" + (dirty ? " dirty" : "")}>
         <span>
@@ -337,7 +410,7 @@ const getTester = (onUpdate, onLimit) => {
   return tester;
 };
 
-function BlindSection({ cfg, change, setS }) {
+function BlindSection({ cfg, change, setS, part }) {
   const total = cfg.blind.reduce((n, r, i) => n + (r.enabled ? r.tracks.filter((t) => isValidTrack(t, BLIND_ROUNDS[i].kind)).length : 0), 0);
   const [playing, setPlaying] = useState(null); // id du morceau en test
   const [testErr, setTestErr] = useState(null);
@@ -362,10 +435,26 @@ function BlindSection({ cfg, change, setS }) {
     c.blind[to].tracks.push(x);
   });
 
+  if (part === "rounds") {
+    return (
+      <section className="cfg-section">
+        <div className="section-head"><h2>Manches et morceaux</h2></div>
+        <p className="muted small">{total} morceau{total > 1 ? "x" : ""} valide{total > 1 ? "s" : ""} dans les manches cochées.</p>
+      {cfg.blind.map((round, ri) => (
+          <BlindRound
+            key={ri} index={ri} round={round} meta={BLIND_ROUNDS[ri]} rounds={cfg.blind}
+            playing={playing} onPlay={onPlay} testErr={testErr}
+            edit={(fn) => change((c) => fn(c.blind[ri]))}
+            onMove={(ti, to) => moveTrack(ri, ti, to)}
+          />
+        ))}
+      </section>
+    );
+  }
   return (
     <section className="cfg-section">
       <div className="section-head">
-        <h2>Blind test</h2>
+        <h2>Réglages du blind test</h2>
       </div>
       <div className="card blind-help">
         <p>
@@ -397,14 +486,6 @@ function BlindSection({ cfg, change, setS }) {
         </p>
         <p className="muted">{total} morceau{total > 1 ? "x" : ""} valide{total > 1 ? "s" : ""} dans les manches cochées.</p>
       </div>
-      {cfg.blind.map((round, ri) => (
-        <BlindRound
-          key={ri} index={ri} round={round} meta={BLIND_ROUNDS[ri]} rounds={cfg.blind}
-          playing={playing} onPlay={onPlay} testErr={testErr}
-          edit={(fn) => change((c) => fn(c.blind[ri]))}
-          onMove={(ti, to) => moveTrack(ri, ti, to)}
-        />
-      ))}
     </section>
   );
 }
@@ -561,10 +642,7 @@ function SoundsSection({ cfg, change, setS }) {
           Joué <strong>uniquement sur l'écran de jeu</strong> à chaque buzz, pour signaler que quelqu'un a buzzé
           (3 secondes environ, 8 au maximum). Laisse vide pour aucun son.
         </p>
-        {clipFields(sig, "signal", (fn) => change((c) => { fn(c.settings.hostSignal); }))}
-        {sig.link && (
-          <button className="btn btn-ghost btn-sm clear-sig" onClick={() => setS("hostSignal", { link: "", start: "", end: "" })}>Retirer ce son</button>
-        )}
+        <ClipEditor id="signal" value={sig} onChange={(fn) => change((c) => { fn(c.settings.hostSignal); })} withEnd />
       </div>
 
       <div className="section-head sub">
@@ -590,5 +668,48 @@ function SoundsSection({ cfg, change, setS }) {
         </div>
       ))}
     </section>
+  );
+}
+
+/* ================= Éditeur d'extrait YouTube (sons, musiques) ================= */
+
+/** Lien YouTube (+ miniature, + ▶ Tester), début, et fin si `withEnd` */
+function ClipEditor({ id, value, onChange, withEnd = true, preview = 8 }) {
+  const [playing, setPlaying] = useState(false);
+  const [err, setErr] = useState("");
+  const vid = youtubeId(value.link);
+  const set = (k) => (e) => {
+    const v = e.target.value;
+    onChange((o) => {
+      o[k] = v;
+      if (k === "link" && !String(o.start).trim()) { const ts = youtubeStart(v); if (ts != null) o.start = String(ts); }
+    });
+  };
+  const test = () => {
+    const p = getTester((st) => { if (st.err) { setErr(st.err); setPlaying(false); } }, () => setPlaying(false));
+    if (playing) { p.stop(); setPlaying(false); return; }
+    setErr("");
+    setPlaying(true);
+    const start = parseTime(value.start) ?? youtubeStart(value.link) ?? 0;
+    let end = withEnd ? parseTime(value.end) ?? start + 3 : start + preview;
+    if (end <= start) end = start + 3;
+    p.play(value, start, Math.min(end, start + Math.max(preview, 8)));
+  };
+  return (
+    <div className="clip-editor" data-clip={id}>
+      <div className="track-file">
+        {vid && <img className="yt-thumb" src={youtubeThumb(vid)} alt="" onError={(e) => (e.currentTarget.style.display = "none")} />}
+        <input placeholder="Lien YouTube (vide = aucun)" value={value.link} onChange={set("link")} />
+        <button className="btn btn-ghost btn-sm" disabled={!vid} onClick={test}>{playing ? "■ Stop" : "▶ Tester"}</button>
+      </div>
+      {err && <div className="warn test-err">{err}</div>}
+      <div className={"track-times" + (withEnd ? "" : " single")}>
+        <label className="field"><span>Début</span><input placeholder="0:00" value={value.start} onChange={set("start")} /></label>
+        {withEnd && <label className="field"><span>Fin</span><input placeholder="0:03" value={value.end} onChange={set("end")} /></label>}
+      </div>
+      {value.link && (
+        <button className="btn btn-ghost btn-sm clear-sig" onClick={() => onChange((o) => { o.link = ""; o.start = ""; if ("end" in o) o.end = ""; })}>Retirer</button>
+      )}
+    </div>
   );
 }

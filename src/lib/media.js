@@ -146,6 +146,37 @@ export class SoundBank {
   }
 }
 
+/* ---------------- Musique de fin (classement), en boucle ---------------- */
+
+export class LoopMusic {
+  constructor(slot = "end") { this.slot = slot; this.player = null; this.active = false; this.muted = false; this.volume = 100; }
+
+  async start(music) {
+    const id = music ? youtubeId(music.link) : null;
+    if (!id) return;
+    const start = Number(music.start) || 0;
+    this.active = true;
+    this.volume = Math.max(0, Math.min(100, Number(music.volume ?? 100)));
+    const p = await createYouTubePlayer(this.slot);
+    if (!this.active) return;
+    this.player = p;
+    // À la fin de la vidéo, on repart du début choisi : la musique tourne en boucle
+    ytStates.set(this.slot, (state) => { if (state === 0 && this.active) { p.seekTo(start, true); p.playVideo(); } });
+    if (this.muted) p.mute(); else p.unMute();
+    p.setVolume?.(this.volume);
+    p.loadVideoById({ videoId: id, startSeconds: start });
+  }
+
+  stop() { this.active = false; this.player?.pauseVideo?.(); }
+
+  /** Coupe ou remet le son : la musique continue de tourner */
+  setMuted(m) {
+    this.muted = m;
+    if (!this.player) return;
+    if (m) this.player.mute(); else this.player.unMute();
+  }
+}
+
 /* ---------------- Son du joueur, sur son téléphone ---------------- */
 
 /**
