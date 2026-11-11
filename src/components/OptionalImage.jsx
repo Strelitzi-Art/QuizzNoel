@@ -9,6 +9,8 @@ export const IMAGES = {
   found: "lepers-trouve",      // quiz : dès qu'un joueur a trouvé
   blindQuestion: "nagui-question", // blind test : pendant le morceau, personne n'a encore trouvé
   blindFound: "nagui-trouve",      // blind test : dès qu'un joueur a trouvé
+  quizParty: "lepers-content",     // quiz : lancé avec les confettis au classement final
+  blindParty: "nagui-content",     // blind test : lancé avec les confettis au classement final
   nobody: "personne",          // question terminée sans bonne réponse
   ranking: "classement",       // gif sous le classement final
 };

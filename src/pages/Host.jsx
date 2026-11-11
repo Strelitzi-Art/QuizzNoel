@@ -5,6 +5,7 @@ import { parseTime, normalizeConfig, buildDeck, buildBlindDeck, answerText, chec
 import { TrackPlayer, LoopMusic, youtubeStart } from "../lib/media.js";
 import { soundById, firstFreeSound, buildSoundCatalog, buildSignal, buildClip, setSoundCatalog, getSoundCatalog, primeSignal, playSignal, primeClip, playClip } from "../lib/sounds.js";
 import MusicStage from "../components/MusicStage.jsx";
+import Confetti from "../components/Confetti.jsx";
 import AdminGate from "../components/AdminGate.jsx";
 import Timer, { useRemaining } from "../components/Timer.jsx";
 import Podium from "../components/Podium.jsx";
@@ -574,6 +575,7 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
         {inQuestion && isBlind && (
           <BlindView st={st} deckQ={deckQ} found={found} queue={queue} audio={audio} teams={teams} players={players} onToggle={togglePlay} />
         )}
+        {st.status === "ended" && <Confetti image={gameType === "blind" ? IMAGES.blindParty : IMAGES.quizParty} />}
         {st.status === "ended" && (
           <div className="final-wrap">
             {!scoring ? <ThanksEnd players={players} /> : st.teams ? <Podium players={teams} /> : <Podium players={players} />}
