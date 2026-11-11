@@ -211,7 +211,16 @@ export function playBeep() {
  * à le rejouer au moment du buzz (les navigateurs mobiles bloquent sinon le son).
  */
 export class PhoneSound {
-  constructor() { this.snd = null; this.mode = null; this.player = null; this.audio = null; this.timer = null; this.key = null; this.url = null; this.lastError = ""; }
+  constructor() {
+    this.snd = null; this.mode = null; this.player = null; this.audio = null; this.timer = null; this.key = null; this.url = null; this.lastError = "";
+    this.activated = false; // YouTube : le joueur a touché ▶ sur la vidéo au moins une fois
+    this.listeners = new Set();
+    this.wantShow = false;
+  }
+  onChange(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
+  notify() { this.listeners.forEach((fn) => fn()); }
+  /** Le son est-il prêt à être joué au buzz ? (fichier audio : toujours ; YouTube : après un toucher sur la vidéo) */
+  get ready() { return this.mode === "audio" || (this.mode === "yt" && this.activated); }
 
   async setSound(snd) {
     this.snd = snd || null;
@@ -224,6 +233,8 @@ export class PhoneSound {
       const link = String(snd.link || "").trim();
       const url = /^https?:\/\//i.test(link) ? link : `${BASE}audio/${link.split("/").map(encodeURIComponent).join("/")}`;
       if (this.url !== url) { this.url = url; this.audio.src = url; this.audio.load(); }
+      this.applyShow();
+      this.notify();
       return;
     }
     this.mode = "yt";
@@ -233,6 +244,8 @@ export class PhoneSound {
     // L'extrait s'arrête tout seul à sa fin, même si le joueur a touché ▶ directement sur la vidéo
     ytStates.set("phone", (state) => {
       if (state !== 1 || !this.snd || this.mode !== "yt") return;
+      // Première lecture : la vidéo a été touchée, le téléphone autorise désormais le son
+      if (!this.activated) { this.activated = true; this.lastError = ""; this.applyShow(); this.notify(); }
       const { start, end } = this.snd;
       let t = p.getCurrentTime?.() || start;
       if (t < start - 0.5 || t >= end) { p.seekTo(start, true); t = start; }
@@ -241,6 +254,7 @@ export class PhoneSound {
     });
     const key = id + "|" + snd.start;
     if (this.key !== key) { this.key = key; p.cueVideoById({ videoId: id, startSeconds: snd.start }); }
+    this.notify();
   }
 
   /** À appeler pendant un toucher : débloque la lecture du fichier audio pour la suite de la partie */
@@ -264,10 +278,11 @@ export class PhoneSound {
    */
   play() {
     const s = this.snd;
-    readyBeep(); // préparé pendant le toucher, au cas où il faudrait le bip de secours
     if (!s) return Promise.resolve(false);
+    if (this.mode === "audio") readyBeep();
     clearTimeout(this.timer);
     this.lastError = "";
+    const token = (this.playToken = (this.playToken || 0) + 1);
     if (this.mode === "audio" && this.audio) {
       const a = this.audio;
       this.wantPlay = true;
@@ -278,18 +293,22 @@ export class PhoneSound {
     }
     const p = this.player;
     if (!p) { this.lastError = "Le lecteur YouTube n'est pas encore chargé"; playBeep(); return Promise.resolve(false); }
+    // Exactement comme la version qui fonctionnait : on lance la vidéo, sans rien d'autre avant
     try { p.unMute(); p.setVolume?.(100); p.seekTo(s.start, true); p.playVideo(); } catch (e) { this.lastError = String(e.message || e); playBeep(); return Promise.resolve(false); }
-    // YouTube : si la vidéo ne démarre pas très vite, le téléphone l'a bloquée -> bip de secours
+    // On laisse à YouTube le temps de charger (souvent plus d'une seconde sur téléphone) ;
+    // le bip de secours ne sert que si rien n'a démarré au bout de 2,5 s
     return new Promise((resolve) => {
       const t0 = Date.now();
       const check = () => {
-        if (p.getPlayerState?.() === 1) return resolve(true);
-        if (this.lastError || Date.now() - t0 > 700) {
-          if (!this.lastError) this.lastError = "Le téléphone a bloqué la lecture YouTube (état du lecteur : " + (p.getPlayerState?.() ?? "?") + ")";
+        if (token !== this.playToken) return resolve(true); // un nouvel appui a pris le relais
+        const st = p.getPlayerState?.();
+        if (st === 1) { this.activated = true; return resolve(true); }
+        if (this.lastError || (st !== 3 && Date.now() - t0 > 2500) || Date.now() - t0 > 5000) {
+          if (!this.lastError) this.lastError = "Le téléphone a bloqué la lecture YouTube (état du lecteur : " + (st ?? "?") + ")";
           playBeep();
           return resolve(false);
         }
-        setTimeout(check, 60);
+        setTimeout(check, 100);
       };
       check();
     });
@@ -302,7 +321,13 @@ export class PhoneSound {
   }
 
   /** Le petit lecteur YouTube n'est affiché que pour un son YouTube, dans le salon d'attente */
-  show(on) { document.querySelector('.yt-holder[data-slot="phone"]')?.classList.toggle("show", !!on && this.mode === "yt"); }
+  show(on) { this.wantShow = !!on; this.applyShow(); }
+  applyShow() {
+    const el = document.querySelector('.yt-holder[data-slot="phone"]');
+    if (!el) return;
+    const visible = this.wantShow && this.mode === "yt" && !this.activated; // une fois activée, la vidéo n'a plus besoin d'être affichée
+    el.classList.toggle("show", visible);
+  }
 }
 
 /* ---------------- Lecteur unifié ---------------- */

@@ -3,6 +3,7 @@ import { getDB, useDb } from "../lib/db.js";
 import { SESSION, go, ranking } from "../lib/utils.js";
 import { toArr, TEAM_COLORS } from "../lib/quiz.js";
 import { setSoundCatalog, getSoundCatalog, soundById, phoneSound } from "../lib/sounds.js";
+import { readyBeep } from "../lib/media.js";
 import Timer, { useRemaining } from "../components/Timer.jsx";
 import Podium from "../components/Podium.jsx";
 import OptionalImage, { IMAGES } from "../components/OptionalImage.jsx";
@@ -152,6 +153,7 @@ function SoundPicker({ R, pid, me, teamMode, myTeam, players, teams }) {
 
   function pick(id) {
     if (taken.has(id) && !allTaken) return;
+    readyBeep();
     const ps = phoneSound();
     ps.setSound(soundById(id)).then(() => ps.unlock());
     db.update(R, { [teamMode ? `teams/${myTeam.id}/sound` : `players/${pid}/sound`]: id });
@@ -164,7 +166,7 @@ function SoundPicker({ R, pid, me, teamMode, myTeam, players, teams }) {
         Il sortira de <strong>ton téléphone</strong> quand tu buzzeras : monte le son !
         {current ? <> Touche <strong>▶</strong> sur le petit lecteur en bas de l'écran pour l'écouter : c'est ce qui autorise ton téléphone à le jouer pendant la partie.</> : " Touche un son pour le choisir."}
       </p>
-      {current && <SoundTester />}
+      {current && <SoundActivation />}
       <div className="sound-grid">
         {SOUNDS.map((x) => {
           const owner = taken.get(x.id);
@@ -215,6 +217,7 @@ function PlayerBlind({ st, R, pid, myTeam, mySound }) {
   async function press() {
     if (!canBuzz) return;
     pressedAt.current = Date.now();
+    if (mySound) phoneSound().play(); // comme la version qui fonctionnait : le son part dès l'appui
     const n = Math.max(sent, result?.n || 0, mine?.n || 0) + 1;
     setSent(n);
     setPressed(true);
@@ -248,8 +251,9 @@ function PlayerBlind({ st, R, pid, myTeam, mySound }) {
         className={"buzzer" + (!canBuzz ? " is-disabled" : "") + (pos === 0 ? " first" : pos > 0 || pending ? " queued" : "") + (result?.ok ? " won" : "") + (locked ? " locked" : "") + (pressed ? " pressed" : "")}
         aria-disabled={!canBuzz} onPointerDown={press} aria-label="Buzzer"
         onClick={() => {
-          // Le son part au relâchement du doigt : c'est là que le téléphone autorise la lecture
-          if (mySound && Date.now() - pressedAt.current < 2000) { phoneSound().play(); pressedAt.current = 0; }
+          // Si le téléphone n'a pas lancé le son à l'appui, on réessaie au relâchement du doigt
+          if (mySound && Date.now() - pressedAt.current < 2000 && !phoneSound().isPlaying()) phoneSound().play();
+          pressedAt.current = 0;
         }}
       >
         <span className="buzzer-ring" />
@@ -259,8 +263,13 @@ function PlayerBlind({ st, R, pid, myTeam, mySound }) {
       </button>
       {msg}
       {st.revealed && <div className="p-revealed">La réponse était : <strong>{st.revealed}</strong></div>}
+      {mySound && <NotActivatedHint />}
     </div>
   );
+}
+
+function NotActivatedHint() {
+  return null;
 }
 
 function PlayerQuestion({ st, R, pid, myTeam }) {
@@ -359,6 +368,14 @@ function PhoneSoundSync({ id, show }) {
   return null;
 }
 
+/** État du son du téléphone (se met à jour quand la vidéo est activée) */
+function usePhoneSoundState() {
+  const [, tick] = useState(0);
+  useEffect(() => phoneSound().onChange(() => tick((t) => t + 1)), []);
+  const ps = phoneSound();
+  return { mode: ps.mode, ready: ps.ready };
+}
+
 /** « Tester mon son » : vérifie que le téléphone accepte de jouer le son du buzzer */
 function SoundTester() {
   const [state, setState] = useState("idle"); // idle | playing | ok | blocked
@@ -374,11 +391,16 @@ function SoundTester() {
       {state === "ok" && <span className="st-ok">✓ Ça marche ! Ton téléphone jouera ce son quand tu buzzeras.</span>}
       {state === "blocked" && (
         <span className="st-ko">
-          Ton téléphone a bloqué ton son : tu entendras un <strong>bip de secours</strong> à la place quand tu buzzeras.
-          Pour avoir ton vrai son, touche <strong>▶ directement sur la petite vidéo</strong> en bas de l'écran (s'il y en a une), puis reteste.
+          Ton téléphone n'a pas lancé ton son. Touche <strong>▶ directement sur la petite vidéo</strong> en bas de l'écran, puis reteste.
+          (Si ça ne passe vraiment pas, un bip de secours le remplacera pendant la partie.)
           {why && <small className="st-why">Détail : {why}</small>}
         </span>
       )}
     </div>
   );
+}
+
+/** Étape d'activation du son (YouTube) puis bouton de test */
+function SoundActivation() {
+  return <SoundTester />;
 }
