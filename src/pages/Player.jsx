@@ -209,6 +209,8 @@ function PlayerBlind({ st, R, pid, myTeam, mySound, me }) {
   const [sent, setSent] = useState(0);
   const [pressed, setPressed] = useState(false);
   const pressedAt = useRef(0);
+  const [soundFail, setSoundFail] = useState(""); // pourquoi le téléphone a refusé le son (affiché sous le buzzer)
+  const playMySound = () => phoneSound().play().then((ok) => setSoundFail(ok ? "" : phoneSound().lastError || "raison inconnue"));
   const queue = toArr(st.queue);
   const pos = queue.findIndex((b) => b.pid === pid);
   const locked = !!st.locked?.[pid];
@@ -221,7 +223,7 @@ function PlayerBlind({ st, R, pid, myTeam, mySound, me }) {
   async function press() {
     if (!canBuzz) return;
     pressedAt.current = Date.now();
-    if (mySound) phoneSound().play(); // comme la version qui fonctionnait : le son part dès l'appui
+    if (mySound) playMySound(); // comme la version qui fonctionnait : le son part dès l'appui
     const n = Math.max(sent, result?.n || 0, mine?.n || 0) + 1;
     setSent(n);
     setPressed(true);
@@ -262,7 +264,7 @@ function PlayerBlind({ st, R, pid, myTeam, mySound, me }) {
         aria-disabled={!canBuzz} onPointerDown={press} aria-label="Buzzer"
         onClick={() => {
           // Si le téléphone n'a pas lancé le son à l'appui, on réessaie au relâchement du doigt
-          if (mySound && Date.now() - pressedAt.current < 2000 && !phoneSound().isPlaying()) phoneSound().play();
+          if (mySound && Date.now() - pressedAt.current < 2000 && !phoneSound().isPlaying()) playMySound();
           pressedAt.current = 0;
         }}
       >
@@ -273,6 +275,7 @@ function PlayerBlind({ st, R, pid, myTeam, mySound, me }) {
       </button>
       {msg}
       {st.revealed && <div className="p-revealed">La réponse était : <strong>{st.revealed}</strong></div>}
+      {soundFail && <div className="sound-fail">🔇 Ton téléphone a refusé ton son de buzzer : {soundFail}</div>}
       <PanicButton st={st} me={me} pid={pid} R={R} />
     </div>
   );

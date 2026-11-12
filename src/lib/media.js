@@ -382,7 +382,10 @@ export class PhoneSound {
   applyShow() {
     const el = document.querySelector('.yt-holder[data-slot="phone"]');
     if (!el) return;
-    el.classList.remove("show"); // la vidéo n'est jamais montrée au joueur
+    // Dans le salon d'attente, le petit lecteur YouTube est visible : le joueur touche ▶ une fois,
+    // ce qui autorise ensuite son téléphone (Android) à rejouer le son avec le volume au moment du buzz.
+    el.classList.toggle("show", this.wantShow && this.mode === "yt");
+    el.classList.toggle("activated", this.activated);
   }
 }
 

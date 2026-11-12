@@ -223,3 +223,4 @@ body:has(.yt-holder.show) .player { padding-bottom: 200px; }
 @keyframes stripesMove { to { background-position: -40px 0; } }
 .panic-box.other { display: block; }
 .p-pause { text-align: center; }
+.sound-fail { font-size: 12px; color: var(--ko); text-align: center; line-height: 1.4; padding: 6px 10px; border-radius: 10px; background: rgba(0,0,0,0.3); }

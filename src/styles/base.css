@@ -302,3 +302,7 @@ kbd { font: 600 12px var(--font); padding: 1px 6px; border-radius: 5px; border: 
 @keyframes panicPulse { 50% { box-shadow: 0 0 0 10px rgba(255, 60, 60, 0), 0 6px 34px rgba(255, 50, 50, 0.7); } }
 .fb.effort { background: rgba(240, 166, 58, 0.18); border: 1px solid #f0a63a; color: #ffd690; }
 @media (prefers-reduced-motion: reduce) { .btn-panic { animation: none; } }
+
+/* Petit lecteur du son du joueur, visible dans le salon d'attente (sinon le téléphone n'autorise pas le son YouTube) */
+.yt-holder[data-slot="phone"].show { opacity: 1; overflow: visible; width: 248px; height: auto; }
+.yt-holder.show.activated::before { content: "✓ Son activé : tu peux le réécouter avec ▶"; color: var(--ok); }
