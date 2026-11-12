@@ -149,12 +149,13 @@ export class SoundBank {
 /* ---------------- Musique de fin (classement), en boucle ---------------- */
 
 export class LoopMusic {
-  constructor(slot = "end") { this.slot = slot; this.player = null; this.active = false; this.muted = false; this.volume = 100; }
+  constructor(slot = "end") { this.slot = slot; this.player = null; this.active = false; this.muted = false; this.volume = 100; this.key = null; }
 
   async start(music) {
     const id = music ? youtubeId(music.link) : null;
     if (!id) return;
     const start = Number(music.start) || 0;
+    const key = id + "|" + start;
     this.active = true;
     this.volume = Math.max(0, Math.min(100, Number(music.volume ?? 100)));
     const p = await createYouTubePlayer(this.slot);
@@ -164,7 +165,9 @@ export class LoopMusic {
     ytStates.set(this.slot, (state) => { if (state === 0 && this.active) { p.seekTo(start, true); p.playVideo(); } });
     if (this.muted) p.mute(); else p.unMute();
     p.setVolume?.(this.volume);
-    p.loadVideoById({ videoId: id, startSeconds: start });
+    // Même musique qu'avant : on reprend là où elle s'était arrêtée
+    if (this.key === key) p.playVideo();
+    else { this.key = key; p.loadVideoById({ videoId: id, startSeconds: start }); }
   }
 
   stop() { this.active = false; this.player?.pauseVideo?.(); }
@@ -175,6 +178,50 @@ export class LoopMusic {
     if (!this.player) return;
     if (m) this.player.mute(); else this.player.unMute();
   }
+}
+
+/* ---------------- Sirène d'alerte (générée, si aucun son d'alerte n'est choisi dans la config) ---------------- */
+
+let fxCtx = null;
+/** À appeler pendant un clic : autorise l'écran de jeu à produire des sons générés */
+export function readyFx() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  if (!fxCtx) fxCtx = new AC();
+  if (fxCtx.state === "suspended") fxCtx.resume();
+}
+/** Sirène « wiou-wiou » d'environ 2,4 secondes */
+export function playSiren() {
+  readyFx();
+  if (!fxCtx) return;
+  const t0 = fxCtx.currentTime;
+  const o = fxCtx.createOscillator(), g = fxCtx.createGain(), lfo = fxCtx.createOscillator(), depth = fxCtx.createGain();
+  o.type = "sawtooth";
+  o.frequency.value = 760;
+  lfo.type = "sine";
+  lfo.frequency.value = 1.6;
+  depth.gain.value = 260;
+  lfo.connect(depth).connect(o.frequency);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(0.16, t0 + 0.08);
+  g.gain.setValueAtTime(0.16, t0 + 2.2);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.5);
+  o.connect(g).connect(fxCtx.destination);
+  o.start(t0); lfo.start(t0);
+  o.stop(t0 + 2.55); lfo.stop(t0 + 2.55);
+}
+/** Petit « ding » (fin du temps de parole) */
+export function playDing(freq = 660) {
+  if (!fxCtx) return;
+  const t0 = fxCtx.currentTime;
+  const o = fxCtx.createOscillator(), g = fxCtx.createGain();
+  o.type = "triangle";
+  o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(0.25, t0 + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.6);
+  o.connect(g).connect(fxCtx.destination);
+  o.start(t0); o.stop(t0 + 0.65);
 }
 
 /* ---------------- Bip de secours (généré par le téléphone, jamais bloqué après un toucher) ---------------- */

@@ -76,11 +76,14 @@ function PlayerGame({ session }) {
       )}
       {st.status === "intro" && <PlayerIntro q={st.question} />}
       {(st.status === "question" || st.status === "closed") && !isBlind && (
-        <PlayerQuestion key={`${st.gameId}-${st.qIndex}`} st={st} R={R} pid={pid} myTeam={myTeam?.id} />
+        <PlayerQuestion key={`${st.gameId}-${st.qIndex}`} st={st} R={R} pid={pid} myTeam={myTeam?.id} me={me} />
       )}
       {st.gameType === "blind" && <PhoneSoundSync id={mySound} show={st.status === "lobby"} />}
       {(st.status === "question" || st.status === "closed") && isBlind && (
-        <PlayerBlind key={`${st.gameId}-${st.qIndex}`} st={st} R={R} pid={pid} myTeam={myTeam?.id} mySound={mySound} />
+        <PlayerBlind key={`${st.gameId}-${st.qIndex}`} st={st} R={R} pid={pid} myTeam={myTeam?.id} mySound={mySound} me={me} />
+      )}
+      {st.status === "bonus" && st.bonus && (
+        <PlayerBonus key={st.bonus.key} st={st} R={R} pid={pid} me={me} myTeam={myTeam} />
       )}
       {st.status === "ended" && (
         <div className="p-ended">
@@ -196,7 +199,7 @@ function PlayerIntro({ q }) {
 }
 
 /** Blind test : un gros buzzer. Le premier à buzzer répond à voix haute, le maître du jeu valide. */
-function PlayerBlind({ st, R, pid, myTeam, mySound }) {
+function PlayerBlind({ st, R, pid, myTeam, mySound, me }) {
   const db = getDB();
   const qi = st.qIndex;
   const q = st.question || {};
@@ -213,6 +216,7 @@ function PlayerBlind({ st, R, pid, myTeam, mySound }) {
   const open = st.status === "question";
   const canBuzz = open && !locked && pos < 0 && !pending && !result?.ok;
   const winner = Object.entries(found || {})[0];
+  const speakLeft = useRemaining(pos === 0 && open ? st.speakEnds : null);
 
   async function press() {
     if (!canBuzz) return;
@@ -230,9 +234,15 @@ function PlayerBlind({ st, R, pid, myTeam, mySound }) {
   if (result?.ok) msg = <div className="fb ok">✓ Bonne réponse !</div>;
   else if (!open && winner) msg = <div className="fb info">{winner[0] === pid ? "Bravo !" : `${winner[1].name} a trouvé`}{winner[1].team && winner[1].team === myTeam && winner[0] !== pid ? " (ton équipe !)" : ""}</div>;
   else if (!open) msg = <div className="fb info">Morceau terminé</div>;
-  else if (pos === 0) msg = <div className="fb your-turn">À toi ! Donne ta réponse à voix haute</div>;
+  else if (pos === 0) msg = (
+    <div className={"fb your-turn" + (speakLeft === 0 ? " over" : "")}>
+      {speakLeft === 0 ? "⏰ Temps écoulé ! Le maître du jeu décide…" : "🎤 À toi ! Donne ta réponse à voix haute"}
+      {speakLeft > 0 && <span className="speak-count">{speakLeft}</span>}
+    </div>
+  );
   else if (pos > 0) msg = <div className="fb wait-turn">Tu es {pos + 1}e dans la file · {queue[0].name} répond…</div>;
   else if (pending) msg = <div className="fb wait">Buzz envoyé…</div>;
+  else if (result?.partial) msg = <div className="fb effort">🤏 Presque ! +{st.partialPoints || 1} pour l'effort</div>;
   else if (locked) msg = <div className="fb ko">✗ Raté pour ce morceau, attends le suivant</div>;
   else if (result && !result.ok) msg = <div className="fb ko">✗ Mauvaise réponse, tu peux rebuzzer !</div>;
   else if (queue.length) msg = <div className="fb wait-turn">{queue[0].name} répond… tu peux buzzer pour passer après</div>;
@@ -263,21 +273,18 @@ function PlayerBlind({ st, R, pid, myTeam, mySound }) {
       </button>
       {msg}
       {st.revealed && <div className="p-revealed">La réponse était : <strong>{st.revealed}</strong></div>}
-      {mySound && <NotActivatedHint />}
+      <PanicButton st={st} me={me} pid={pid} R={R} />
     </div>
   );
 }
 
-function NotActivatedHint() {
-  return null;
-}
-
-function PlayerQuestion({ st, R, pid, myTeam }) {
+function PlayerQuestion({ st, R, pid, myTeam, me }) {
   const db = getDB();
   const qi = st.qIndex;
   const q = st.question || {};
   const result = useDb(`${R}/results/${qi}/${pid}`);
   const found = useDb(`${R}/found/${qi}`);
+  const extra = useDb(st.status === "closed" ? `${R}/extra/${qi}/${pid}` : null);
   const [text, setText] = useState("");
   const [sent, setSent] = useState(0);      // numéro du dernier essai envoyé
   const [picked, setPicked] = useState(null);
@@ -318,6 +325,7 @@ function PlayerQuestion({ st, R, pid, myTeam }) {
   else if (result?.late || blockedFirst) feedback = <div className="fb info">🏆 {othersFound[0]?.name || "Quelqu'un"} a trouvé en premier !</div>;
   else if (result && !result.ok) feedback = <div className="fb ko">✗ Mauvaise réponse{canAnswer ? ", essaie encore !" : ""}</div>;
   if (!open && !result?.ok && !feedback) feedback = <div className="fb info">Les réponses sont fermées</div>;
+  const paused = st.status === "closed";
 
   return (
     <div className="p-question">
@@ -352,6 +360,9 @@ function PlayerQuestion({ st, R, pid, myTeam }) {
       {limit > 1 && !result?.ok && open && <div className="muted tries">Essais : {tries}/{limit}</div>}
       {feedback}
       {st.revealed && <div className="p-revealed">La réponse était : <strong>{st.revealed}</strong></div>}
+      {paused && Number(extra) > 0 && <div className="fb effort pop">🎁 +{extra} : le maître du jeu a aimé ta réponse !</div>}
+      {paused && <div className="p-pause"><span className="pp-ico">⏸</span> Pause : le maître du jeu regarde les réponses…</div>}
+      <PanicButton st={st} me={me} pid={pid} R={R} />
     </div>
   );
 }
@@ -403,4 +414,145 @@ function SoundTester() {
 /** Étape d'activation du son (YouTube) puis bouton de test */
 function SoundActivation() {
   return <SoundTester />;
+}
+
+/* ================= Bouton panique & question bonus d'urgence ================= */
+
+/** Sous le champ de réponse (quiz) ou le buzzer (blind test) : déclenche une question bonus, une fois toutes les N questions */
+function PanicButton({ st, me, pid, R }) {
+  const db = getDB();
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), 3500);
+    return () => clearTimeout(t);
+  }, [armed]);
+  if (!st.panicOn || !me) return null;
+  const qi = st.qIndex, cd = st.panicCooldown || 5;
+  const pts = st.bonusPts || { win: 4, lose: 2, effort: 1 };
+  const pn = st.panic && st.panic.qi === qi ? st.panic : null;
+  if (pn) {
+    return pn.pid === pid
+      ? <div className="panic-box mine pop"><strong>🚨 Panique enclenchée !</strong><span>Ta question bonus arrive à la fin de cette question.</span></div>
+      : <div className="panic-box other">🚨 <strong>{pn.name}</strong> a déclenché la panique</div>;
+  }
+  if (me.panic && me.panic.qi === qi && me.panic.g === st.gameId) return <div className="panic-box wait">🚨 Envoi de l'alerte…</div>;
+  const left = me.bonusAt == null ? 0 : me.bonusAt + cd - qi;
+  if (left > 0) {
+    return (
+      <div className="panic-box cool">
+        <span>🔒 Bouton panique rechargé dans <strong>{left}</strong> question{left > 1 ? "s" : ""}</span>
+        <div className="pc-bar"><i style={{ width: Math.round((1 - left / cd) * 100) + "%" }} /></div>
+      </div>
+    );
+  }
+  function press() {
+    if (!armed) { setArmed(true); navigator.vibrate?.(30); return; }
+    setArmed(false);
+    navigator.vibrate?.([90, 50, 90]);
+    db.update(R, { [`players/${pid}/panic`]: { qi, at: db.now(), g: st.gameId } });
+  }
+  return (
+    <button className={"panic-btn" + (armed ? " armed" : "")} onClick={press}>
+      <span className="pb-stripes" />
+      <span className="pb-label">{armed ? "Sûr ? Touche encore !" : "🚨 Bouton panique"}</span>
+      <small>{armed ? `+${pts.win} si juste · −${pts.lose} si faux` : "Une question bonus rien que pour toi"}</small>
+    </button>
+  );
+}
+
+/** Pendant la question bonus : le joueur concerné répond, les autres sont en pause */
+function PlayerBonus({ st, R, pid, me, myTeam }) {
+  const b = st.bonus;
+  const pts = st.bonusPts || { win: 4, lose: 2, effort: 1 };
+  const teamMate = myTeam && b.team === myTeam.id && b.pid !== pid;
+  const mine = b.pid === pid;
+  const q = b.question || {};
+  const result = b.phase === "result" && (
+    <div className={"pb-result " + b.outcome}>
+      <div className="pb-points">{b.pts > 0 ? "+" + b.pts : b.pts < 0 ? "−" + Math.abs(b.pts) : "0"}</div>
+      <div>{b.outcome === "win" ? "🎉 Bonne réponse !" : b.outcome === "effort" ? "🤏 Pour l'effort !" : "💀 Raté !"}</div>
+      {b.revealed && <div className="p-revealed">La réponse était : <strong>{b.revealed}</strong></div>}
+    </div>
+  );
+
+  if (!mine) {
+    return (
+      <div className="p-bonus-wait">
+        <div className="pbw-ico">{b.phase === "result" ? "✦" : "⏸"}</div>
+        <div className="pbw-tag">🚨 Question bonus d'urgence</div>
+        <h2>{b.name}{teamMate ? " (ton équipe !)" : ""}</h2>
+        {b.phase === "alert" && <p className="muted">choisit sa catégorie…</p>}
+        {(b.phase === "question" || b.phase === "judge") && <p className="muted">répond à sa question bonus{b.catName ? <> en <strong>{b.catName}</strong></> : ""}. Patience, la partie reprend juste après !</p>}
+        {result}
+      </div>
+    );
+  }
+  return (
+    <div className={"p-bonus phase-" + b.phase}>
+      <div className="pb-alert-tag">🚨 Ta question bonus</div>
+      {b.phase === "alert" && (
+        <>
+          <h2>C'est à toi !</h2>
+          <p>Annonce ta catégorie au maître du jeu :</p>
+          <div className="pb-cats">
+            {toArr(b.cats).map((c) => <div key={c.key} className={"pb-cat" + (c.n ? "" : " off")}>{c.name}</div>)}
+          </div>
+          <p className="muted small">+{pts.win} si c'est juste · +{pts.effort} pour l'effort · −{pts.lose} si c'est faux</p>
+        </>
+      )}
+      {b.phase === "question" && q.type === "blind" && (
+        <>
+          <div className="q-cat">{b.catName}</div>
+          <h2 className="p-qtext">{q.prompt}</h2>
+          <div className="pb-mic">🎤</div>
+          <div className="fb your-turn">Écoute, puis réponds à voix haute !</div>
+        </>
+      )}
+      {b.phase === "question" && q.type !== "blind" && <BonusAnswer b={b} st={st} R={R} pid={pid} me={me} />}
+      {b.phase === "judge" && (
+        <>
+          <h2 className="p-qtext">{q.type === "blind" ? q.prompt : q.text}</h2>
+          {b.answer && <div className="fb info">Ta réponse : <strong>{b.answer}</strong></div>}
+          <div className="fb wait">Le maître du jeu délibère…</div>
+        </>
+      )}
+      {result}
+    </div>
+  );
+}
+
+/** La question bonus du quiz, sur le téléphone : une seule réponse */
+function BonusAnswer({ b, st, R, pid, me }) {
+  const db = getDB();
+  const q = b.question || {};
+  const [text, setText] = useState("");
+  const sent = me?.bonusAnswer?.k === b.key;
+  const left = useRemaining(b.endsAt);
+  const can = !sent && left !== 0;
+  const send = (v) => { if (can) db.update(R, { [`players/${pid}/bonusAnswer`]: { k: b.key, v, at: db.now() } }); };
+  return (
+    <>
+      <div className="q-cat">{b.catName}</div>
+      <Timer endsAt={b.endsAt} total={st.bonusTimer} />
+      <h2 className="p-qtext">{q.text}</h2>
+      {q.image && <img className="p-img" src={q.image} alt="" />}
+      {q.type === "qcm" ? (
+        <div className="p-choices">
+          {(q.choices || []).map((c, i) => (
+            <button key={i} className={"p-choice" + (sent && Number(me.bonusAnswer.v) === i ? " picked" : "")} disabled={!can} onClick={() => send(i)}>
+              <span className="letter">{LETTERS[i]}</span>{c}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <form className="p-form" onSubmit={(e) => { e.preventDefault(); if (text.trim()) send(text.trim()); }}>
+          <input value={text} onChange={(e) => setText(e.target.value)} disabled={!can} autoFocus
+            placeholder={can ? "Ta réponse (un seul essai !)" : ""} autoComplete="off" autoCapitalize="off" autoCorrect="off" enterKeyHint="send" />
+          <button className="btn btn-gold" disabled={!can || !text.trim()}>Envoyer</button>
+        </form>
+      )}
+      {sent && <div className="fb wait">Réponse envoyée… verdict !</div>}
+    </>
+  );
 }

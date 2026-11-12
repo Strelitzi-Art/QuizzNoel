@@ -104,9 +104,9 @@ function ConfigEditor({ admin, onChangeKey }) {
 
   const toggleOpen = (id) => setOpen((o) => { const n = new Set(o); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const s = cfg.settings;
-  const enabledCount = cfg.categories.filter((c) => c.enabled).reduce((n, c) => n + c.questions.filter(isValidQuestion).length, 0);
+  const enabledCount = cfg.categories.filter((c) => c.enabled && !c.bonusOnly).reduce((n, c) => n + c.questions.filter(isValidQuestion).length, 0);
 
-  const blindCount = cfg.blind.reduce((n, r, i) => n + (r.enabled ? r.tracks.filter((t) => isValidTrack(t, BLIND_ROUNDS[i].kind)).length : 0), 0);
+  const blindCount = cfg.blind.reduce((n, r, i) => n + (r.enabled ? r.tracks.filter((t) => !t.bonus && isValidTrack(t, BLIND_ROUNDS[i].kind)).length : 0), 0);
   const TABS = [
     { id: "general", label: "Général", hint: "Les deux jeux" },
     { id: "quiz", label: "Quiz", hint: `${enabledCount} question${enabledCount > 1 ? "s" : ""}` },
@@ -153,7 +153,13 @@ function ConfigEditor({ admin, onChangeKey }) {
                 <input value={cfg.gamePassword} onChange={(e) => change((c) => { c.gamePassword = e.target.value; })} placeholder="ex : soiree2026" /></label>
               <label className={"field" + (s.scoring ? "" : " off")}><span>Points par bonne réponse</span>
                 <input type="number" min="1" disabled={!s.scoring} value={s.points} onChange={(e) => setS("points", Math.max(1, num(e.target.value)))} /></label>
+              <label className={"field" + (s.scoring ? "" : " off")}><span>Point d'effort (donné par le maître du jeu)</span>
+                <input type="number" min="1" disabled={!s.scoring} value={s.partialPoints} onChange={(e) => setS("partialPoints", Math.max(1, num(e.target.value)))} /></label>
             </div>
+            <p className="muted small">
+              Le point d'effort : au quiz, pendant la pause qui suit chaque question, tu peux l'accorder à une réponse pertinente ;
+              au blind test, à un joueur qui a buzzé avec une réponse presque bonne (la parole passe ensuite au suivant).
+            </p>
             <div className="checks">
               <Check label="Afficher la réponse à la fin de chaque question / morceau" v={s.autoReveal} on={(v) => setS("autoReveal", v)} />
               <Check label="Autoriser à rejoindre une partie en cours" v={s.lateJoin} on={(v) => setS("lateJoin", v)} />
@@ -185,11 +191,52 @@ function ConfigEditor({ admin, onChangeKey }) {
             <p className="muted small">Ce sont les réglages par défaut : tu peux aussi passer en solo ou en équipes, changer le nombre d'équipes et leurs noms directement dans le salon d'attente de l'écran de jeu.</p>
           </section>
 
+          <section className={"card cfg-section bonus-cfg" + (s.panic && s.scoring ? "" : " is-off")}>
+            <h2>🚨 Question bonus d'urgence</h2>
+            <p className="muted small">
+              Chaque joueur a un <strong>bouton panique</strong> sous son champ de réponse (quiz) ou son buzzer (blind test).
+              S'il appuie, au moment où tu passes à la suite, une alerte se déclenche : le joueur choisit une catégorie
+              (une manche au blind test) et répond seul à une question, pendant que les autres attendent.
+              Bonne réponse : il gagne des points ; sinon tu décides (faux, effort ou validé).
+            </p>
+            {!s.scoring && <p className="warn">Disponible seulement dans une partie avec points.</p>}
+            <Check label="Activer le bouton panique sur les téléphones" v={s.panic} on={(v) => setS("panic", v)} />
+            <div className="grid compact">
+              <label className="field"><span>Une panique toutes les N questions</span>
+                <input type="number" min="1" value={s.panicCooldown} onChange={(e) => setS("panicCooldown", Math.max(1, num(e.target.value)))} /></label>
+              <label className="field"><span>Points gagnés (bonne réponse)</span>
+                <input type="number" min="0" value={s.bonusWin} onChange={(e) => setS("bonusWin", num(e.target.value))} /></label>
+              <label className="field"><span>Points perdus (faux)</span>
+                <input type="number" min="0" value={s.bonusLose} onChange={(e) => setS("bonusLose", num(e.target.value))} /></label>
+              <label className="field"><span>Point d'effort</span>
+                <input type="number" min="0" value={s.bonusEffort} onChange={(e) => setS("bonusEffort", num(e.target.value))} /></label>
+              <label className="field"><span>Chrono du quiz (s, 0 = aucun)</span>
+                <input type="number" min="0" value={s.bonusTimer} onChange={(e) => setS("bonusTimer", num(e.target.value))} /></label>
+            </div>
+            <p className="muted small">
+              Les questions bonus sont prises dans les catégories cochées : d'abord celles marquées <strong>⚡ Bonus</strong> (réservées, jamais posées
+              pendant la partie) ou non tirées, sinon une question pas encore posée. Au blind test, coche <strong>⚡ Bonus</strong> sur quelques morceaux de chaque manche.
+            </p>
+            <h3 className="sub-title spaced">Son d'alerte</h3>
+            <p className="muted small">Joué sur l'écran de jeu quand la question bonus se déclenche (8 secondes au maximum). Vide = une sirène.</p>
+            <ClipEditor id="bonus-alert" value={s.bonusAlert} onChange={setClip("bonusAlert")} withEnd />
+            <h3 className="sub-title spaced">Musique de la question bonus</h3>
+            <p className="muted small">
+              Tourne en boucle pendant la question bonus du quiz. Au blind test, seulement pendant le choix de la catégorie (pour qu'on entende le morceau ensuite).
+              Coupe-la à tout moment avec le bouton « Musique » en haut de l'écran de jeu.
+            </p>
+            <ClipEditor id="bonus-music" value={s.bonusMusic} onChange={setClip("bonusMusic")} withEnd={false} preview={15} />
+            <label className="field volume">
+              <span>Volume : {s.bonusMusic.volume} %</span>
+              <input type="range" min="5" max="100" step="5" value={s.bonusMusic.volume} onChange={(e) => change((c) => { c.settings.bonusMusic.volume = Number(e.target.value); })} />
+            </label>
+          </section>
+
           <section className="card cfg-section">
             <h2>Musique de fin</h2>
             <p className="muted small">
               Se lance sur l'écran de jeu à l'affichage du classement final (quiz et blind test) et tourne <strong>en boucle</strong>.
-              Un bouton permet d'en couper le son pendant le classement. Laisse vide pour aucune musique.
+              Le bouton « Musique » en haut de l'écran de jeu la coupe. Laisse vide pour aucune musique.
             </p>
             <ClipEditor id="end-music" value={s.endMusic} onChange={setClip("endMusic")} withEnd={false} preview={15} />
           </section>
@@ -242,7 +289,7 @@ function ConfigEditor({ admin, onChangeKey }) {
           <section className="card cfg-section">
             <h2>Sons du quiz</h2>
             <h3 className="sub-title">Musique de fond</h3>
-            <p className="muted small">Tourne en boucle sur l'écran de jeu pendant les questions, sans redémarrer d'une question à l'autre. Un bouton « Fond » permet de la couper pendant la partie.</p>
+            <p className="muted small">Tourne en boucle sur l'écran de jeu pendant les questions, sans redémarrer d'une question à l'autre. Le bouton « Musique » en haut de l'écran de jeu la coupe (et la remet).</p>
             <ClipEditor id="quiz-bg" value={s.quizBg} onChange={setClip("quizBg")} withEnd={false} preview={15} />
             <label className="field volume">
               <span>Volume de la musique de fond : {s.quizBg.volume} %</span>
@@ -316,6 +363,8 @@ function Category({ cat, isOpen, onToggle, edit, remove }) {
           <input type="checkbox" checked={cat.enabled} onChange={(e) => edit((c) => { c.enabled = e.target.checked; })} />
         </label>
         <input className="cat-name" value={cat.name} onChange={(e) => edit((c) => { c.name = e.target.value; })} />
+        <button type="button" className={"bonus-toggle" + (cat.bonusOnly ? " on" : "")} onClick={() => edit((c) => { c.bonusOnly = !c.bonusOnly; })}
+          title="Réservée aux questions bonus d'urgence : jamais posée pendant la partie">⚡ Bonus</button>
         <span className="badge">{valid}/{cat.questions.length}</span>
         <button className="btn btn-ghost btn-sm" onClick={onToggle}>{isOpen ? "Replier" : "Modifier"}</button>
         <button className="btn btn-danger btn-sm" onClick={remove}>Supprimer</button>
@@ -473,6 +522,10 @@ function BlindSection({ cfg, change, setS, part }) {
           <Check label="Un joueur refusé ne peut plus buzzer sur le même morceau" v={cfg.settings.blindLockout} on={(v) => setS("blindLockout", v)} />
           <Check label="Mélanger les morceaux dans chaque manche" v={cfg.settings.blindShuffle} on={(v) => setS("blindShuffle", v)} />
         </div>
+        <label className="field speak-time">
+          <span>Temps de parole après un buzz (secondes, 0 = pas de limite)</span>
+          <input type="number" min="0" value={cfg.settings.speakTime} onChange={(e) => setS("speakTime", Math.max(0, parseInt(e.target.value, 10) || 0))} />
+        </label>
         <label className="field check-mode">
           <span>Quand un joueur buzze et répond à voix haute</span>
           <select value={cfg.settings.blindCheck} onChange={(e) => setS("blindCheck", e.target.value)}>
@@ -526,6 +579,8 @@ function BlindRound({ index, round, rounds, meta, edit, onMove, playing, onPlay,
                 <div className="q-edit-head">
                   <span className="q-num">#{ti + 1}</span>
                   {!ok && <span className="warn">incomplet</span>}
+                  <button type="button" className={"bonus-toggle sm" + (t.bonus ? " on" : "")} onClick={() => edit((r) => { r.tracks[ti].bonus = !r.tracks[ti].bonus; })}
+                    title="Réservé aux questions bonus d'urgence : jamais joué pendant la partie">⚡ Bonus</button>
                   <span className="spacer" />
                   <select className="move-round" value={index} title="Changer de manche" onChange={(e) => onMove(ti, Number(e.target.value))}>
                     {rounds.map((r, i) => <option key={i} value={i}>{i === index ? "Manche " + (i + 1) : "→ " + r.name}</option>)}

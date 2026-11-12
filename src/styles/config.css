@@ -146,3 +146,18 @@
   .cfg-tabs button strong { font-size: 15px; }
   .cfg-tabs button { padding: 8px 4px; }
 }
+
+/* ====== Question bonus ====== */
+.bonus-cfg { border-color: rgba(255, 107, 107, 0.5); }
+.bonus-cfg h2 { color: #ff9c92; }
+.bonus-cfg.is-off > :not(h2):not(p):not(.check) { opacity: 0.5; }
+.grid.compact { grid-template-columns: repeat(auto-fill, minmax(min(180px, 100%), 1fr)); margin-top: 12px; }
+.bonus-toggle {
+  font: 600 13px var(--font); cursor: pointer; color: var(--muted); white-space: nowrap;
+  padding: 5px 11px; border-radius: 999px; background: rgba(0,0,0,0.25); border: 1px dashed rgba(255,220,180,0.3); transition: all .15s;
+}
+.bonus-toggle:hover { color: #ffd690; border-color: #f0a63a; }
+.bonus-toggle.on { color: #3a1a02; background: linear-gradient(180deg, #ffe39a, #f0a63a); border: 1px solid #f0a63a; }
+.bonus-toggle.sm { padding: 3px 9px; font-size: 12px; }
+.speak-time { max-width: 420px; margin: 8px 0 4px; }
+.grid.compact { align-items: end; }

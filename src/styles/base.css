@@ -284,3 +284,21 @@ kbd { font: 600 12px var(--font); padding: 1px 6px; border-radius: 5px; border: 
   text-align: center; font: 600 11px var(--font); color: var(--gold-2);
 }
 .yt-holder.show iframe { display: block; width: 240px; height: 135px; border-radius: 10px; }
+
+/* ====== Boutons ajoutés : effort, panique ====== */
+.btn-effort {
+  background: linear-gradient(180deg, #ffe39a, #f0a63a); color: #3a1a02; border-color: rgba(255,240,200,0.6);
+  box-shadow: 0 4px 22px rgba(240, 166, 58, 0.35), inset 0 1px 0 rgba(255,255,255,0.55);
+}
+.btn-effort:hover:not(:disabled) { filter: brightness(1.07); }
+.btn-panic {
+  background: repeating-linear-gradient(-45deg, #ff3b3b 0 14px, #c3121f 14px 28px); background-size: 200% 100%;
+  color: #fff; border-color: rgba(255, 220, 200, 0.7); text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  box-shadow: 0 0 0 0 rgba(255, 60, 60, 0.6), 0 6px 26px rgba(255, 50, 50, 0.45);
+  animation: stripesMove 1.2s linear infinite, panicPulse 1.2s ease-in-out infinite;
+}
+.btn kbd { border-color: currentColor; }
+@keyframes stripesMove { to { background-position: -40px 0; } }
+@keyframes panicPulse { 50% { box-shadow: 0 0 0 10px rgba(255, 60, 60, 0), 0 6px 34px rgba(255, 50, 50, 0.7); } }
+.fb.effort { background: rgba(240, 166, 58, 0.18); border: 1px solid #f0a63a; color: #ffd690; }
+@media (prefers-reduced-motion: reduce) { .btn-panic { animation: none; } }

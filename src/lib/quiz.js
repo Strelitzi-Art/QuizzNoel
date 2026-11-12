@@ -6,7 +6,8 @@ export const DEFAULT_SETTINGS = {
   title: SITE_TITLE,
   scoring: true,        // compter les points (classement et vainqueur à la fin)
   mode: "all",          // "all" : tous ceux qui trouvent marquent | "first" : seul le premier marque
-  points: 1,            // points par bonne réponse
+  points: 2,            // points par bonne réponse (quiz et blind test)
+  partialPoints: 1,     // point « d'effort » donné par le maître du jeu (réponse presque bonne)
   firstBonus: 0,        // bonus pour le premier à trouver
   timer: 0,             // secondes par question (0 = pas de chrono)
   attempts: 0,          // essais par question en texte libre (0 = illimité)
@@ -25,6 +26,16 @@ export const DEFAULT_SETTINGS = {
   blindLockout: true,   // un joueur refusé ne peut plus buzzer sur ce morceau
   blindShuffle: true,   // mélange les morceaux à l'intérieur de chaque manche
   blindCheck: "auto",   // réponse au buzzer : "auto" (le jeu valide), "assist" (le jeu teste, le MJ confirme), "manual"
+  speakTime: 10,        // blind test : temps de parole (s) du joueur qui a buzzé (0 = pas de limite)
+  // Bouton panique / question bonus d'urgence (quiz et blind test)
+  panic: true,          // bouton panique sur les téléphones
+  panicCooldown: 5,     // un joueur peut relancer une question bonus toutes les N questions
+  bonusWin: 4,          // points gagnés si la réponse est bonne
+  bonusLose: 2,         // points perdus si la réponse est fausse
+  bonusEffort: 1,       // point d'effort
+  bonusTimer: 30,       // quiz : secondes pour répondre à la question bonus (0 = pas de chrono)
+  bonusAlert: { link: "", start: "", end: "" },  // son d'alerte quand la question bonus se déclenche
+  bonusMusic: { link: "", start: "", volume: 40 }, // musique pendant la question bonus
   hostSignal: { link: "", start: "", end: "" }, // son joué sur l'écran de jeu à chaque buzz (extrait YouTube)
   endMusic: { link: "", start: "" },             // musique en boucle pendant le classement final (YouTube)
   quizBg: { link: "", start: "", volume: 35 },   // quiz : musique de fond en boucle pendant les questions
@@ -55,7 +66,7 @@ export function formatTime(sec) {
 }
 
 export function newTrack() {
-  return { id: rid(4), link: "", start: "", end: "", answer: "", answer2: "" };
+  return { id: rid(4), link: "", start: "", end: "", answer: "", answer2: "", bonus: false };
 }
 
 export function isValidTrack(t, kind) {
@@ -72,26 +83,52 @@ function blindAnswerText(kind, t) {
   return b ? `${a} (${b})` : a;
 }
 
+function blindItem(t, ri, round, meta) {
+  const start = parseTime(t.start) ?? 0;
+  const end = parseTime(t.end) ?? start + 20;
+  return {
+    id: t.id, catKey: "r" + (ri + 1),
+    type: "blind", round: ri + 1, kind: meta.kind, roundName: round.name || meta.name, prompt: meta.prompt,
+    link: t.link.trim(), start, end, answerText: blindAnswerText(meta.kind, t),
+    answer: t.answer.trim(), answer2: (t.answer2 || "").trim(),
+    words: meta.kind === "lyrics" ? countWords(t.answer.split("|")[0]) : null,
+  };
+}
+
 export function buildBlindDeck(cfg) {
   const s = cfg.settings;
   const deck = [];
   cfg.blind.forEach((round, ri) => {
     if (!round.enabled) return;
     const meta = BLIND_ROUNDS[ri];
-    let tracks = round.tracks.filter((t) => isValidTrack(t, meta.kind));
+    // Les morceaux marqués « bonus » sont gardés pour les questions bonus d'urgence
+    let tracks = round.tracks.filter((t) => isValidTrack(t, meta.kind) && !t.bonus);
     if (s.blindShuffle) tracks = shuffled(tracks);
-    for (const t of tracks) {
-      const start = parseTime(t.start) ?? 0;
-      const end = parseTime(t.end) ?? start + 20;
-      deck.push({
-        type: "blind", round: ri + 1, kind: meta.kind, roundName: round.name || meta.name, prompt: meta.prompt,
-        link: t.link.trim(), start, end, answerText: blindAnswerText(meta.kind, t),
-        answer: t.answer.trim(), answer2: (t.answer2 || "").trim(),
-        words: meta.kind === "lyrics" ? countWords(t.answer.split("|")[0]) : null,
-      });
-    }
+    for (const t of tracks) deck.push(blindItem(t, ri, round, meta));
   });
   return deck;
+}
+
+/**
+ * Réserve de la question bonus : une « carte » par catégorie (quiz) ou par manche (blind test),
+ * avec les questions qui ne sont pas dans la partie. Si une réserve est vide, le jeu prendra
+ * une question de cette catégorie qui n'a pas encore été posée.
+ */
+export function buildBonusCats(cfg, type, deck) {
+  const used = new Set(deck.map((q) => q.id));
+  if (type === "blind") {
+    return cfg.blind.map((round, ri) => {
+      const meta = BLIND_ROUNDS[ri];
+      const items = round.enabled ? shuffled(round.tracks.filter((t) => isValidTrack(t, meta.kind) && !used.has(t.id))).map((t) => blindItem(t, ri, round, meta)) : [];
+      return { key: "r" + (ri + 1), name: round.name || meta.name, enabled: round.enabled, items };
+    }).filter((c) => c.enabled).map(({ enabled, ...c }) => c);
+  }
+  return cfg.categories
+    .filter((cat) => cat.enabled)
+    .map((cat) => ({
+      key: cat.id, name: cat.name, bonusOnly: cat.bonusOnly,
+      items: shuffled(cat.questions.filter((q) => isValidQuestion(q) && !used.has(q.id))).map((q) => quizItem(q, cat)),
+    }));
 }
 
 function shuffled(arr) {
@@ -126,6 +163,15 @@ export function normalizeConfig(c) {
       st.quizBg = { link: bg.link || "", start: bg.start ?? "", volume: Number.isFinite(+bg.volume) && bg.volume !== "" ? +bg.volume : 35 };
       const qc = st.quizCorrect && typeof st.quizCorrect === "object" ? st.quizCorrect : {};
       st.quizCorrect = { link: qc.link || "", start: qc.start ?? "", end: qc.end ?? "" };
+      const ba = st.bonusAlert && typeof st.bonusAlert === "object" ? st.bonusAlert : {};
+      st.bonusAlert = { link: ba.link || "", start: ba.start ?? "", end: ba.end ?? "" };
+      const bm = st.bonusMusic && typeof st.bonusMusic === "object" ? st.bonusMusic : {};
+      st.bonusMusic = { link: bm.link || "", start: bm.start ?? "", volume: Number.isFinite(+bm.volume) && bm.volume !== "" ? +bm.volume : 40 };
+      // Passage au barème à 2 points par bonne réponse (une seule fois : ensuite, le réglage choisi est gardé)
+      if (st.pointsV !== 2) { st.points = 2; st.pointsV = 2; }
+      for (const k of ["partialPoints", "speakTime", "panicCooldown", "bonusWin", "bonusLose", "bonusEffort", "bonusTimer"])
+        st[k] = Math.max(0, Number(st[k]) || 0);
+      st.panicCooldown = Math.max(1, st.panicCooldown || 5);
       delete st.builtinSounds; delete st.hostBuzzSound; delete st.phoneBuzzSound;
       return st;
     })(),
@@ -133,6 +179,7 @@ export function normalizeConfig(c) {
       id: cat.id || rid(4),
       name: cat.name || "Sans nom",
       enabled: cat.enabled !== false,
+      bonusOnly: !!cat.bonusOnly,
       questions: toArr(cat.questions).map((q) => {
         const choices = toArr(q.choices).map(String);
         while (choices.length < 2) choices.push("");
@@ -157,7 +204,7 @@ export function normalizeConfig(c) {
         enabled: r.enabled !== false,
         tracks: toArr(r.tracks).map((t) => ({
           id: t.id || rid(4), link: t.link || t.file || "", start: t.start ?? "", end: t.end ?? "",
-          answer: t.answer || "", answer2: t.answer2 || "",
+          answer: t.answer || "", answer2: t.answer2 || "", bonus: !!t.bonus,
         })),
       };
     }),
@@ -190,26 +237,37 @@ export function isValidQuestion(q) {
   return q.answers.split("|").some((a) => a.trim());
 }
 
+function quizItem(q, cat) {
+  const base = { id: q.id, catId: cat.id, catKey: cat.id, image: q.image || "", cat: cat.name, text: q.text };
+  if (q.type === "qcm") {
+    // On retire les choix vides en gardant la bonne réponse
+    const good = q.choices[q.correct];
+    const choices = q.choices.filter((c) => c.trim());
+    return { ...base, type: "qcm", choices, correct: choices.indexOf(good) };
+  }
+  return { ...base, type: "text", answers: q.answers };
+}
+
 export function buildDeck(cfg) {
   const s = cfg.settings;
   let deck = [];
   for (const cat of cfg.categories) {
-    if (!cat.enabled) continue;
-    for (const q of cat.questions) {
-      if (!isValidQuestion(q)) continue;
-      if (q.type === "qcm") {
-        // On retire les choix vides en gardant la bonne réponse
-        const good = q.choices[q.correct];
-        const choices = q.choices.filter((c) => c.trim());
-        deck.push({ type: "qcm", text: q.text, choices, correct: choices.indexOf(good), image: q.image || "", cat: cat.name });
-      } else {
-        deck.push({ type: "text", text: q.text, answers: q.answers, image: q.image || "", cat: cat.name });
-      }
-    }
+    if (!cat.enabled || cat.bonusOnly) continue;
+    for (const q of cat.questions) if (isValidQuestion(q)) deck.push(quizItem(q, cat));
   }
   if (s.shuffle) deck = shuffled(deck);
   if (s.maxQuestions > 0) deck = deck.slice(0, s.maxQuestions);
   return deck;
+}
+
+/** Texte d'une réponse de joueur, pour l'affichage (QCM : la lettre et le choix) */
+export function answerLabel(q, v) {
+  if (v == null || v === "") return "";
+  if (q?.type === "qcm") {
+    const i = Number(v);
+    return (q.choices?.[i] != null ? "ABCDEFGH"[i] + " · " + q.choices[i] : String(v));
+  }
+  return String(v);
 }
 
 export function answerText(q) {
