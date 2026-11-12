@@ -161,3 +161,6 @@
 .bonus-toggle.sm { padding: 3px 9px; font-size: 12px; }
 .speak-time { max-width: 420px; margin: 8px 0 4px; }
 .grid.compact { align-items: end; }
+.bonus-sounds { margin-top: 18px; padding-top: 14px; border-top: 1px dashed rgba(255, 107, 107, 0.45); }
+.bonus-sounds .sub-title { color: #ff9c92; }
+.sub-sub { font: 700 15px var(--font); color: var(--gold-2); margin: 14px 0 4px; letter-spacing: 0; }

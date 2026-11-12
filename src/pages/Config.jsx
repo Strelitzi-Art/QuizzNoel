@@ -217,19 +217,7 @@ function ConfigEditor({ admin, onChangeKey }) {
               Les questions bonus sont prises dans les catégories cochées : d'abord celles marquées <strong>⚡ Bonus</strong> (réservées, jamais posées
               pendant la partie) ou non tirées, sinon une question pas encore posée. Au blind test, coche <strong>⚡ Bonus</strong> sur quelques morceaux de chaque manche.
             </p>
-            <h3 className="sub-title spaced">Son d'alerte</h3>
-            <p className="muted small">Joué sur l'écran de jeu quand la question bonus se déclenche (8 secondes au maximum). Vide = une sirène.</p>
-            <ClipEditor id="bonus-alert" value={s.bonusAlert} onChange={setClip("bonusAlert")} withEnd />
-            <h3 className="sub-title spaced">Musique de la question bonus</h3>
-            <p className="muted small">
-              Tourne en boucle pendant la question bonus du quiz. Au blind test, seulement pendant le choix de la catégorie (pour qu'on entende le morceau ensuite).
-              Coupe-la à tout moment avec le bouton « Musique » en haut de l'écran de jeu.
-            </p>
-            <ClipEditor id="bonus-music" value={s.bonusMusic} onChange={setClip("bonusMusic")} withEnd={false} preview={15} />
-            <label className="field volume">
-              <span>Volume : {s.bonusMusic.volume} %</span>
-              <input type="range" min="5" max="100" step="5" value={s.bonusMusic.volume} onChange={(e) => change((c) => { c.settings.bonusMusic.volume = Number(e.target.value); })} />
-            </label>
+            <p className="muted small">🎵 Le <strong>son d'alerte</strong> et la <strong>musique</strong> de la question bonus se choisissent dans l'onglet <strong>Quiz</strong> (section « Sons du quiz ») et dans l'onglet <strong>Blind test</strong>.</p>
           </section>
 
           <section className="card cfg-section">
@@ -298,6 +286,7 @@ function ConfigEditor({ admin, onChangeKey }) {
             <h3 className="sub-title spaced">Son de bonne réponse</h3>
             <p className="muted small">Joué sur l'écran de jeu chaque fois que quelqu'un trouve la bonne réponse (3 secondes environ, 8 au maximum).</p>
             <ClipEditor id="quiz-correct" value={s.quizCorrect} onChange={setClip("quizCorrect")} withEnd />
+            <BonusSounds s={s} setClip={setClip} change={change} game="quiz" />
           </section>
 
           <section className="cfg-section">
@@ -329,6 +318,10 @@ function ConfigEditor({ admin, onChangeKey }) {
         <>
           <BlindSection cfg={cfg} change={change} setS={setS} part="settings" />
           <SoundsSection cfg={cfg} change={change} setS={setS} />
+          <section className="card cfg-section">
+            <h2>Sons de la question bonus</h2>
+            <BonusSounds s={s} setClip={setClip} change={change} game="blind" />
+          </section>
           <BlindSection cfg={cfg} change={change} setS={setS} part="rounds" />
         </>
       )}
@@ -340,6 +333,31 @@ function ConfigEditor({ admin, onChangeKey }) {
         </span>
         <button className="btn btn-gold" disabled={!dirty} onClick={save}>Enregistrer</button>
       </div>
+    </div>
+  );
+}
+
+/** Son d'alerte + musique de la question bonus d'urgence (réglages communs au quiz et au blind test) */
+function BonusSounds({ s, setClip, change, game }) {
+  return (
+    <div className="bonus-sounds">
+      <h3 className="sub-title spaced">🚨 Question bonus d'urgence</h3>
+      <p className="muted small">Ces deux sons sont communs au quiz et au blind test.</p>
+      <h4 className="sub-sub">Son d'alerte</h4>
+      <p className="muted small">Joué sur l'écran de jeu quand la question bonus se déclenche (8 secondes au maximum). Vide = une sirène.</p>
+      <ClipEditor id="bonus-alert" value={s.bonusAlert} onChange={setClip("bonusAlert")} withEnd />
+      <h4 className="sub-sub">Musique de la question bonus</h4>
+      <p className="muted small">
+        {game === "quiz"
+          ? "Tourne en boucle pendant toute la question bonus (choix de la catégorie, réponse, verdict) à la place de la musique de fond."
+          : "Au blind test, elle tourne seulement pendant le choix de la catégorie, puis se coupe pour qu'on entende le morceau."}
+        {" "}Le bouton « Musique » en haut de l'écran de jeu la coupe ou la remet.
+      </p>
+      <ClipEditor id="bonus-music" value={s.bonusMusic} onChange={setClip("bonusMusic")} withEnd={false} preview={15} />
+      <label className="field volume">
+        <span>Volume de la musique bonus : {s.bonusMusic.volume} %</span>
+        <input type="range" min="5" max="100" step="5" value={s.bonusMusic.volume} onChange={(e) => change((c) => { c.settings.bonusMusic.volume = Number(e.target.value); })} />
+      </label>
     </div>
   );
 }

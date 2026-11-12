@@ -648,7 +648,6 @@ function HostRoom({ adminKey, roomKey, gamePassword }) {
   async function pickBonusCat(key) {
     const s = stRef.current, cur = curRef.current, b = s?.bonus;
     if (!b || b.phase !== "alert") return;
-    loops.current.bonus.stop();
     const cats = toArr(cur.bonusCats).map((c) => ({ ...c, items: toArr(c.items) }));
     const cat = cats.find((c) => c.key === key);
     let q = null, deck = cur.deck;
